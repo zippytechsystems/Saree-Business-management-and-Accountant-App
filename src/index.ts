@@ -25,6 +25,15 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Construction ERP API is running',
+    health: '/api/health',
+    projects: '/api/projects',
+    documentation: 'https://github.com/zippytechsystems/construction-ERP'
+  });
+});
+
 app.use('/api', apiRouter);
 
 // Central Error Handler
@@ -42,8 +51,10 @@ async function startServer() {
   });
 }
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   startServer();
+} else {
+  initDatabase().catch(console.error);
 }
 
 export default app;
