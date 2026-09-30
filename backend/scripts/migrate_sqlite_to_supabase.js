@@ -7,28 +7,47 @@
  */
 
 import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import db from '../db/database.js';
 import * as supabaseService from '../services/supabaseService.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dataDir = path.resolve(__dirname, '../../data');
+const dbPath = path.join(dataDir, 'app.db');
 
 async function runMigration() {
   console.log('================================================================');
   console.log('STARTING SQLITE -> SUPABASE CLOUD DATABASE MIGRATION');
   console.log('================================================================\n');
 
-  // Step 1: Pre-flight SQLite Integrity Checks
-  console.log('1. Checking local SQLite database integrity...');
-  const integrity = db.pragma('integrity_check');
-  const fkCheck = db.pragma('foreign_key_check');
+  // Step 1: Pre-flight SQLite Integrity Checks & Mandatory Backup
+  console.log('1. Backing up local SQLite database...');
+  if (fs.existsSync(dbPath)) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = path.join(dataDir, `app.db.backup-${timestamp}`);
+    fs.copyFileSync(dbPath, backupPath);
+    console.log(`   ✓ Backup created successfully: ${backupPath}`);
+  } else {
+    console.log('   ℹ No existing local database found at', dbPath);
+  }
 
-  console.log(`   - PRAGMA integrity_check: ${JSON.stringify(integrity[0].integrity_check)}`);
+  console.log('\n2. Checking local SQLite database integrity...');
+  const integrity = db.prepare('PRAGMA integrity_check;').all();
+  const fkCheck = db.prepare('PRAGMA foreign_key_check;').all();
+
+  const integrityStatus = integrity.length > 0 ? (integrity[0].integrity_check || 'ok') : 'ok';
+  console.log(`   - PRAGMA integrity_check: "${integrityStatus}"`);
   console.log(`   - PRAGMA foreign_key_check violations: ${fkCheck.length}`);
 
-  if (integrity[0].integrity_check !== 'ok' || fkCheck.length > 0) {
+  if (integrityStatus !== 'ok' || fkCheck.length > 0) {
     throw new Error('Local SQLite database failed integrity or foreign key check. Aborting migration.');
   }
 
-  // Step 2: Check Supabase Connectivity
-  console.log('\n2. Verifying Supabase cloud connectivity...');
+  // Step 3: Check Supabase Connectivity
+  console.log('\n3. Verifying Supabase cloud connectivity...');
   const config = supabaseService.getSupabaseConfig();
   if (!config.isConfigured) {
     console.error('\n❌ ERROR: Supabase credentials are missing in .env!');
@@ -39,68 +58,98 @@ async function runMigration() {
   const conn = await supabaseService.testSupabaseConnection();
   if (!conn.connected) {
     console.error('\n❌ ERROR: Could not connect to Supabase:', conn.error || conn.reason);
-    process.exit(1);
+    console.error('\n📋 Required Setup Step:');
+    console.error('Please ensure the schema in backend/db/supabase_schema.sql has been executed');
+    console.error('in your Supabase Dashboard -> SQL Editor.');
+    try { db.close(); } catch (e) {}
+    process.exitCode = 1;
+    return;
   }
   console.log(`   ✓ Connected to Supabase at: ${config.url}`);
 
-  // Step 3: Extract SQLite Data
-  console.log('\n3. Extracting existing records from SQLite...');
+  // Step 4: Extract SQLite Data
+  console.log('\n4. Extracting existing records from SQLite...');
   const users = db.prepare('SELECT id, username, password_hash, created_at, updated_at FROM users').all();
   const profiles = db.prepare('SELECT id, user_id, business_name, business_address, business_nickname, created_at, updated_at FROM business_profiles').all();
+  const sessions = db.prepare('SELECT id, user_id, token, expires_at, created_at FROM sessions').all();
   const varieties = db.prepare('SELECT id, user_id, name, created_at FROM product_varieties').all();
   const stock = db.prepare('SELECT id, user_id, product_id, movement_type, quantity, entry_date, notes, created_at FROM stock_entries').all();
   const sales = db.prepare('SELECT id, user_id, entry_date, total_sales_amount, created_at, updated_at FROM daily_sales').all();
-  const expenses = db.prepare('SELECT id, user_id, expense_date, expense_type, amount, description, created_at, updated_at FROM expenses').all();
+  const expenses = db.prepare('SELECT id, user_id, expense_date, expense_type, amount, description, created_at, created_at AS updated_at FROM expenses').all();
   const lenders = db.prepare('SELECT id, user_id, name, mobile, place, amount_given, amount_paid, loan_date, notes, created_at, updated_at FROM lenders').all();
 
   console.log(`   - Users: ${users.length}`);
   console.log(`   - Business Profiles: ${profiles.length}`);
+  console.log(`   - Sessions: ${sessions.length}`);
   console.log(`   - Product Varieties: ${varieties.length}`);
   console.log(`   - Stock Entries: ${stock.length}`);
   console.log(`   - Daily Sales: ${sales.length}`);
   console.log(`   - Expenses: ${expenses.length}`);
   console.log(`   - Lenders: ${lenders.length}`);
 
-  // Step 4: Insert into Supabase
-  console.log('\n4. Migrating records to Supabase PostgreSQL...');
+  // Step 5: Insert into Supabase in Dependency Order (batches to avoid payload size limits)
+  console.log('\n5. Migrating records to Supabase PostgreSQL...');
+
+  const batchMigrate = async (table, rows) => {
+    if (!rows || rows.length === 0) return;
+    const chunkSize = 50;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      await supabaseService.bulkInsertCloud(table, chunk);
+    }
+  };
 
   if (users.length > 0) {
-    await supabaseService.bulkInsertCloud('users', users);
+    await batchMigrate('users', users);
     console.log(`   ✓ Migrated ${users.length} users.`);
   }
 
   if (profiles.length > 0) {
-    await supabaseService.bulkInsertCloud('business_profiles', profiles);
+    await batchMigrate('business_profiles', profiles);
     console.log(`   ✓ Migrated ${profiles.length} business profiles.`);
   }
 
+  if (sessions.length > 0) {
+    await batchMigrate('sessions', sessions);
+    console.log(`   ✓ Migrated ${sessions.length} sessions.`);
+  }
+
   if (varieties.length > 0) {
-    await supabaseService.bulkInsertCloud('product_varieties', varieties);
+    await batchMigrate('product_varieties', varieties);
     console.log(`   ✓ Migrated ${varieties.length} product varieties.`);
   }
 
   if (stock.length > 0) {
-    await supabaseService.bulkInsertCloud('stock_entries', stock);
+    await batchMigrate('stock_entries', stock);
     console.log(`   ✓ Migrated ${stock.length} stock entries.`);
   }
 
   if (sales.length > 0) {
-    await supabaseService.bulkInsertCloud('daily_sales', sales);
+    await batchMigrate('daily_sales', sales);
     console.log(`   ✓ Migrated ${sales.length} daily sales records.`);
   }
 
   if (expenses.length > 0) {
-    await supabaseService.bulkInsertCloud('expenses', expenses);
+    await batchMigrate('expenses', expenses);
     console.log(`   ✓ Migrated ${expenses.length} expense records.`);
   }
 
   if (lenders.length > 0) {
-    await supabaseService.bulkInsertCloud('lenders', lenders);
+    await batchMigrate('lenders', lenders);
     console.log(`   ✓ Migrated ${lenders.length} lender accounts.`);
   }
 
-  // Step 5: Parity Verification
-  console.log('\n5. Executing Database Parity Audit across all owners...');
+  // Step 6: Sync Sequence Counters
+  console.log('\n6. Synchronizing auto-increment sequences in PostgreSQL...');
+  const seqResult = await supabaseService.syncCloudSequences();
+  if (seqResult.success) {
+    console.log('   ✓ Auto-increment sequences successfully aligned with migrated IDs.');
+  } else {
+    console.log('   ℹ Sequence sync helper note:', seqResult.error || 'Skipped or manually set');
+  }
+
+  // Step 7: Parity Verification
+  console.log('\n7. Executing Database Parity Audit across all owners...');
   let allParityMatched = true;
 
   for (const user of users) {
@@ -127,10 +176,10 @@ async function runMigration() {
     console.log(`   Net Profit:  SQLite ₹${sqSalesTotal - sqExpTotal}  vs  Cloud ₹${cloud.net_profit}`);
 
     if (
-      sqSalesTotal !== cloud.total_sales ||
-      sqExpTotal !== cloud.total_expenses ||
-      sqCurrentStock !== cloud.current_stock ||
-      sqLenderDue !== cloud.total_lender_due
+      Number(sqSalesTotal) !== Number(cloud.total_sales) ||
+      Number(sqExpTotal) !== Number(cloud.total_expenses) ||
+      Number(sqCurrentStock) !== Number(cloud.current_stock) ||
+      Number(sqLenderDue) !== Number(cloud.total_lender_due)
     ) {
       console.error(`   ❌ PARITY MISMATCH DETECTED FOR USER ${uid}`);
       allParityMatched = false;
@@ -139,17 +188,20 @@ async function runMigration() {
     }
   }
 
+  try { db.close(); } catch (e) {}
   if (allParityMatched) {
     console.log('\n================================================================');
     console.log('✅ MIGRATION & PARITY CHECK COMPLETED WITH 100% ACCURACY!');
     console.log('================================================================\n');
   } else {
     console.error('\n❌ MIGRATION FAILED: Some records or totals did not match exactly.');
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 }
 
 runMigration().catch((err) => {
+  try { db.close(); } catch (e) {}
   console.error('\nFATAL ERROR DURING MIGRATION:', err.message);
-  process.exit(1);
+  process.exitCode = 1;
 });

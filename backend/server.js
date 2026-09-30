@@ -14,8 +14,24 @@ const distPath = path.resolve(__dirname, '../dist');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Security & Parsing Middleware with Body Limits (1MB)
-app.use(cors());
+// Security & Parsing Middleware with Body Limits (1MB) and Production CORS
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : '*';
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins === '*' || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
@@ -50,17 +66,19 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`[Server] Backend service running on http://localhost:${PORT}`);
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`[Server] Backend service running on http://localhost:${PORT}`);
 
-  // Background retry of pending cloud sync jobs on startup if cloud credentials configured
-  const cloudConfig = cloudBackupService.getCloudConfig();
-  if (cloudConfig.isConfigured) {
-    console.log(`[CloudBackup] Auto-flushing pending sync queue for ${cloudConfig.provider}...`);
-    cloudBackupService.retryPendingSyncs().catch((err) => {
-      console.error('[CloudBackup] Startup sync flush error:', err.message);
-    });
-  }
-});
+    // Background retry of pending cloud sync jobs on startup if cloud credentials configured
+    const cloudConfig = cloudBackupService.getCloudConfig();
+    if (cloudConfig.isConfigured) {
+      console.log(`[CloudBackup] Auto-flushing pending sync queue for ${cloudConfig.provider}...`);
+      cloudBackupService.retryPendingSyncs().catch((err) => {
+        console.error('[CloudBackup] Startup sync flush error:', err.message);
+      });
+    }
+  });
+}
 
 export default app;

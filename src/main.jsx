@@ -3,11 +3,22 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
 
-// Automatically attach Bearer token to all /api/ requests
+const API_BASE = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/+$/, '')
+  : '';
+
+// Automatically prepend backend URL (if configured) and attach Bearer token to all /api/ requests
 const nativeFetch = window.fetch;
 window.fetch = (url, options = {}) => {
+  let targetUrl = url;
+  if (typeof url === 'string' && url.startsWith('/api') && API_BASE) {
+    targetUrl = `${API_BASE}${url}`;
+  }
+
   const token = localStorage.getItem('auth_token');
-  if (token && typeof url === 'string' && url.startsWith('/api')) {
+  const isApiRequest = typeof targetUrl === 'string' && (targetUrl.startsWith('/api') || (API_BASE && targetUrl.startsWith(API_BASE)));
+
+  if (token && isApiRequest) {
     const opts = { ...options };
     if (!opts.headers) {
       opts.headers = {};
@@ -28,9 +39,9 @@ window.fetch = (url, options = {}) => {
         };
       }
     }
-    return nativeFetch(url, opts);
+    return nativeFetch(targetUrl, opts);
   }
-  return nativeFetch(url, options);
+  return nativeFetch(targetUrl, options);
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(

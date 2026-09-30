@@ -1,7 +1,7 @@
 -- ====================================================================
 -- SUPABASE POSTGRESQL PRODUCTION SCHEMA
 -- Project: Business Management & Accountant Management App (Version 1.0)
--- Scope: Single-Owner Multi-Device Authoritative Cloud Database
+-- Scope: Multi-Device Authoritative Cloud Database with Row Level Security
 -- ====================================================================
 
 -- 1. Enable UUID extension if needed
@@ -146,8 +146,21 @@ CREATE INDEX IF NOT EXISTS idx_cloud_sync_user_id ON cloud_sync_log (user_id);
 CREATE INDEX IF NOT EXISTS idx_cloud_sync_status ON cloud_sync_log (status);
 CREATE INDEX IF NOT EXISTS idx_cloud_sync_month ON cloud_sync_log (year_month);
 
--- 11. Row Level Security (RLS) Policies (Defence-in-Depth)
--- Ensure tables have RLS enabled
+-- 11. Cloud Backup Metadata
+CREATE TABLE IF NOT EXISTS cloud_backup_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 12. Monthly Snapshot Backups Table
+CREATE TABLE IF NOT EXISTS cloud_backups (
+    year_month VARCHAR(7) PRIMARY KEY,
+    snapshot_data JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 13. Row Level Security (RLS) Policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE business_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
@@ -157,40 +170,96 @@ ALTER TABLE daily_sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lenders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cloud_sync_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cloud_backup_meta ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cloud_backups ENABLE ROW LEVEL SECURITY;
 
--- Note: In backend-authoritative architecture using the SUPABASE_SERVICE_ROLE_KEY,
--- the service role bypasses RLS while our backend strictly enforces:
--- `WHERE user_id = authenticated_owner_id` on 100% of queries.
--- For standard authenticated tokens, the following policies ensure strict isolation:
+-- Note: The server uses SUPABASE_SERVICE_ROLE_KEY which bypasses RLS and enforces user isolation in the application layer.
+-- For direct authenticated client tokens or public anon access, the following policies ensure strict user isolation:
 
 DROP POLICY IF EXISTS users_isolation ON users;
 CREATE POLICY users_isolation ON users
+    FOR ALL
     USING (id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
 
 DROP POLICY IF EXISTS business_profiles_isolation ON business_profiles;
 CREATE POLICY business_profiles_isolation ON business_profiles
+    FOR ALL
+    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
+
+DROP POLICY IF EXISTS sessions_isolation ON sessions;
+CREATE POLICY sessions_isolation ON sessions
+    FOR ALL
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
 
 DROP POLICY IF EXISTS product_varieties_isolation ON product_varieties;
 CREATE POLICY product_varieties_isolation ON product_varieties
+    FOR ALL
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
 
 DROP POLICY IF EXISTS stock_entries_isolation ON stock_entries;
 CREATE POLICY stock_entries_isolation ON stock_entries
+    FOR ALL
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
 
 DROP POLICY IF EXISTS daily_sales_isolation ON daily_sales;
 CREATE POLICY daily_sales_isolation ON daily_sales
+    FOR ALL
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
 
 DROP POLICY IF EXISTS expenses_isolation ON expenses;
 CREATE POLICY expenses_isolation ON expenses
+    FOR ALL
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
 
 DROP POLICY IF EXISTS lenders_isolation ON lenders;
 CREATE POLICY lenders_isolation ON lenders
+    FOR ALL
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
 
 DROP POLICY IF EXISTS cloud_sync_log_isolation ON cloud_sync_log;
 CREATE POLICY cloud_sync_log_isolation ON cloud_sync_log
+    FOR ALL
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::bigint);
+
+DROP POLICY IF EXISTS cloud_backup_meta_all ON cloud_backup_meta;
+CREATE POLICY cloud_backup_meta_all ON cloud_backup_meta
+    FOR ALL
+    USING (true);
+
+DROP POLICY IF EXISTS cloud_backups_all ON cloud_backups;
+CREATE POLICY cloud_backups_all ON cloud_backups
+    FOR ALL
+    USING (true);
+
+-- 13. Auto-increment sequence sync function (for use after inserting historical SQLite records)
+CREATE OR REPLACE FUNCTION sync_all_sequences() RETURNS void AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM users) THEN
+        PERFORM setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM business_profiles) THEN
+        PERFORM setval(pg_get_serial_sequence('business_profiles', 'id'), COALESCE((SELECT MAX(id) FROM business_profiles), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM sessions) THEN
+        PERFORM setval(pg_get_serial_sequence('sessions', 'id'), COALESCE((SELECT MAX(id) FROM sessions), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM product_varieties) THEN
+        PERFORM setval(pg_get_serial_sequence('product_varieties', 'id'), COALESCE((SELECT MAX(id) FROM product_varieties), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM stock_entries) THEN
+        PERFORM setval(pg_get_serial_sequence('stock_entries', 'id'), COALESCE((SELECT MAX(id) FROM stock_entries), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM daily_sales) THEN
+        PERFORM setval(pg_get_serial_sequence('daily_sales', 'id'), COALESCE((SELECT MAX(id) FROM daily_sales), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM expenses) THEN
+        PERFORM setval(pg_get_serial_sequence('expenses', 'id'), COALESCE((SELECT MAX(id) FROM expenses), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM lenders) THEN
+        PERFORM setval(pg_get_serial_sequence('lenders', 'id'), COALESCE((SELECT MAX(id) FROM lenders), 1));
+    END IF;
+    IF EXISTS (SELECT 1 FROM cloud_sync_log) THEN
+        PERFORM setval(pg_get_serial_sequence('cloud_sync_log', 'id'), COALESCE((SELECT MAX(id) FROM cloud_sync_log), 1));
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

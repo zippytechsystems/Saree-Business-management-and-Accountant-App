@@ -28,7 +28,7 @@ export function isSupabaseConfigured() {
 /**
  * Perform authenticated request to Supabase PostgREST API
  */
-async function supabaseRequest(endpoint, options = {}) {
+async function supabaseRequest(endpoint, options = {}, retries = 2) {
   const config = getSupabaseConfig();
   if (!config.isConfigured) {
     throw new Error('Supabase is not configured. Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
@@ -43,27 +43,35 @@ async function supabaseRequest(endpoint, options = {}) {
     ...(options.headers || {}),
   };
 
-  const response = await fetch(url, {
-    method: options.method || 'GET',
-    headers,
-    body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
-  });
+  try {
+    const response = await fetch(url, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    const err = new Error(`Supabase API error (${response.status}): ${errorText}`);
-    err.status = response.status;
-    err.responseBody = errorText;
+    if (!response.ok) {
+      const errorText = await response.text();
+      const err = new Error(`Supabase API error (${response.status}): ${errorText}`);
+      err.status = response.status;
+      err.responseBody = errorText;
+      throw err;
+    }
+
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return null;
+    }
+
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (retries > 0 && (err.name === 'TypeError' || err.code === 'ECONNRESET' || err.cause?.code === 'ECONNRESET')) {
+      await new Promise((r) => setTimeout(r, 400));
+      return supabaseRequest(endpoint, options, retries - 1);
+    }
     throw err;
   }
-
-  // Handle 204 No Content
-  if (response.status === 204) {
-    return null;
-  }
-
-  const text = await response.text();
-  return text ? JSON.parse(text) : null;
 }
 
 /**
@@ -135,6 +143,53 @@ export async function createCloudUser({ id, username, password_hash }) {
 }
 
 /**
+ * Sessions / Authentication Tokens
+ */
+export async function createCloudSession(userId, token, expiresAt) {
+  const payload = {
+    user_id: Number(userId),
+    token,
+    expires_at: expiresAt,
+    created_at: new Date().toISOString(),
+  };
+
+  const result = await supabaseRequest('sessions', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: payload,
+  });
+  return Array.isArray(result) ? result[0] : result;
+}
+
+export async function fetchCloudSessionByToken(token) {
+  if (!token) return null;
+  const sessions = await supabaseRequest(`sessions?token=eq.${encodeURIComponent(token)}&limit=1`);
+  return sessions && sessions.length > 0 ? sessions[0] : null;
+}
+
+export async function deleteCloudSession(token) {
+  if (!token) return;
+  await supabaseRequest(`sessions?token=eq.${encodeURIComponent(token)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Synchronize auto-increment sequences in Supabase PostgreSQL
+ */
+export async function syncCloudSequences() {
+  try {
+    await supabaseRequest('rpc/sync_all_sequences', {
+      method: 'POST',
+      body: {},
+    });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Business Profile
  */
 export async function fetchCloudBusinessProfile(userId) {
@@ -152,7 +207,7 @@ export async function upsertCloudBusinessProfile(userId, { business_name, busine
     updated_at: now,
   };
 
-  const result = await supabaseRequest('business_profiles', {
+  const result = await supabaseRequest('business_profiles?on_conflict=user_id', {
     method: 'POST',
     headers: {
       Prefer: 'resolution=merge-duplicates,return=representation',
@@ -182,7 +237,7 @@ export async function upsertCloudSale(userId, { entry_date, total_sales_amount }
     updated_at: now,
   };
 
-  const result = await supabaseRequest('daily_sales', {
+  const result = await supabaseRequest('daily_sales?on_conflict=user_id,entry_date', {
     method: 'POST',
     headers: {
       Prefer: 'resolution=merge-duplicates,return=representation',
@@ -364,7 +419,18 @@ export async function recordCloudLenderRepayment(userId, lenderId, repaymentAmou
  */
 export async function bulkInsertCloud(table, rows) {
   if (!rows || rows.length === 0) return { inserted: 0 };
-  const result = await supabaseRequest(table, {
+  const conflictMap = {
+    users: 'id',
+    business_profiles: 'user_id',
+    sessions: 'token',
+    product_varieties: 'user_id,name',
+    stock_entries: 'id',
+    daily_sales: 'user_id,entry_date',
+    expenses: 'id',
+    lenders: 'id',
+  };
+  const endpoint = conflictMap[table] ? `${table}?on_conflict=${conflictMap[table]}` : table;
+  const result = await supabaseRequest(endpoint, {
     method: 'POST',
     headers: {
       Prefer: 'resolution=merge-duplicates,return=minimal',

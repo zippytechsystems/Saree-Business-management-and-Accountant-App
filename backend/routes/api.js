@@ -30,14 +30,26 @@ function handleError(res, error, defaultStatusCode = 400) {
 // -------------------------------------------------------------
 // SYSTEM & HEALTH
 // -------------------------------------------------------------
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
   try {
     const dbStatus = getDatabaseStatus();
+    const isSupabase = supabaseService.isSupabaseConfigured();
+    let cloudStatus = null;
+    if (isSupabase) {
+      cloudStatus = await supabaseService.testSupabaseConnection();
+    }
+
     res.json({
       success: true,
       app: 'Business Management & Accountant Management App',
       status: 'Production Ready (V1.0)',
-      database: dbStatus,
+      database: {
+        ...dbStatus,
+        mode: isSupabase && cloudStatus?.connected ? 'authoritative_supabase' : 'local_sqlite_fallback',
+        supabase_configured: isSupabase,
+        supabase_connected: Boolean(cloudStatus?.connected),
+        supabase_url: isSupabase ? process.env.SUPABASE_URL : null,
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -46,21 +58,21 @@ router.get('/health', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// AUTHENTICATION ENDPOINTS
+// AUTHENTICATION ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
 // Sign Up
-router.post('/auth/signup', (req, res) => {
+router.post('/auth/signup', async (req, res) => {
   try {
     const { username, password, confirmPassword } = req.body;
-    const result = authService.createOwnerAccount({ username, password, confirmPassword });
+    const result = await authoritativeDataService.signupUserAuthoritative({ username, password, confirmPassword });
     res.status(201).json({
       success: true,
       message: 'Account created successfully',
       token: result.token,
       user: result.user,
-      business_profile: result.profile || null,
-      needs_profile: true,
+      business_profile: result.business_profile || null,
+      needs_profile: result.needs_profile,
     });
   } catch (error) {
     handleError(res, error, 400);
@@ -68,11 +80,11 @@ router.post('/auth/signup', (req, res) => {
 });
 
 // Login
-router.post('/auth/login', (req, res) => {
+router.post('/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const clientIp = req.ip || req.connection?.remoteAddress || '127.0.0.1';
-    const result = authService.loginOwner({ username, password, clientIp });
+    const result = await authoritativeDataService.loginUserAuthoritative({ username, password, clientIp });
     res.status(200).json({
       success: true,
       message: 'Logged in successfully',
@@ -88,12 +100,12 @@ router.post('/auth/login', (req, res) => {
 });
 
 // Logout
-router.post('/auth/logout', (req, res) => {
+router.post('/auth/logout', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7).trim();
-      authService.logoutOwner(token);
+      await authoritativeDataService.logoutUserAuthoritative(token);
     }
     res.status(200).json({
       success: true,
@@ -105,9 +117,9 @@ router.post('/auth/logout', (req, res) => {
 });
 
 // Get Current Authenticated Owner Profile
-router.get('/auth/me', requireAuth, (req, res) => {
+router.get('/auth/me', requireAuth, async (req, res) => {
   try {
-    const profile = authService.getBusinessProfile(req.userId);
+    const profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
     res.json({
       success: true,
       user: req.user,
@@ -119,13 +131,13 @@ router.get('/auth/me', requireAuth, (req, res) => {
 });
 
 // -------------------------------------------------------------
-// BUSINESS PROFILE ENDPOINTS
+// BUSINESS PROFILE ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
 // Get Business Profile
-router.get('/business-profile', authenticateOwner, (req, res) => {
+router.get('/business-profile', authenticateOwner, async (req, res) => {
   try {
-    const profile = authService.getBusinessProfile(req.userId);
+    const profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
     res.json({
       success: true,
       data: profile,
@@ -136,11 +148,10 @@ router.get('/business-profile', authenticateOwner, (req, res) => {
 });
 
 // Create or Update Business Profile
-const handleBusinessProfileSave = (req, res) => {
+const handleBusinessProfileSave = async (req, res) => {
   try {
     const { business_name, business_address, business_nickname } = req.body;
-    const profile = authService.upsertBusinessProfile({
-      userId: req.userId,
+    const profile = await authoritativeDataService.upsertBusinessProfileAuthoritative(req.userId, {
       business_name,
       business_address,
       business_nickname,
@@ -164,24 +175,14 @@ router.put('/business-profile', authenticateOwner, handleBusinessProfileSave);
 router.use(authenticateOwner);
 
 // -------------------------------------------------------------
-// 1. DAILY SALES ENDPOINTS
+// 1. DAILY SALES ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
 // Record or update daily sales
-router.post('/sales', (req, res) => {
+router.post('/sales', async (req, res) => {
   try {
     const { entry_date, total_sales_amount } = req.body;
-    const result = salesService.recordDailySales(entry_date, total_sales_amount, req.userId);
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'UPSERT',
-      entityType: 'sales',
-      entityId: result.id,
-      payload: result,
-      date: entry_date,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Sales hook error:', err.message));
+    const result = await authoritativeDataService.recordSaleAuthoritative(entry_date, total_sales_amount, req.userId);
 
     res.status(200).json({
       success: true,
@@ -193,10 +194,10 @@ router.post('/sales', (req, res) => {
 });
 
 // Retrieve today's sales
-router.get('/sales/today', (req, res) => {
+router.get('/sales/today', async (req, res) => {
   try {
     const { date } = req.query;
-    const result = salesService.getTodaySales(date, req.userId);
+    const result = await authoritativeDataService.getTodaySalesAuthoritative(date, req.userId);
     res.json({
       success: true,
       data: result,
@@ -207,11 +208,11 @@ router.get('/sales/today', (req, res) => {
 });
 
 // Retrieve monthly total sales
-router.get('/sales/monthly', (req, res) => {
+router.get('/sales/monthly', async (req, res) => {
   try {
     const { month } = req.query;
     const targetMonth = month || calculationService.getCurrentMonthString();
-    const result = salesService.getMonthlyTotalSales(targetMonth, req.userId);
+    const result = await authoritativeDataService.getMonthlyTotalSalesAuthoritative(targetMonth, req.userId);
     res.json({
       success: true,
       data: result,
@@ -222,10 +223,10 @@ router.get('/sales/monthly', (req, res) => {
 });
 
 // Retrieve date-wise sales history
-router.get('/sales', (req, res) => {
+router.get('/sales', async (req, res) => {
   try {
     const { month, startDate, endDate, limit, offset } = req.query;
-    const history = salesService.getSalesHistory({
+    const history = await authoritativeDataService.getSalesAuthoritative({
       month,
       startDate,
       endDate,
@@ -244,10 +245,10 @@ router.get('/sales', (req, res) => {
 });
 
 // Retrieve sales for a specific date
-router.get('/sales/:date', (req, res) => {
+router.get('/sales/:date', async (req, res) => {
   try {
     const { date } = req.params;
-    const record = salesService.getSalesByDate(date, req.userId);
+    const record = await authoritativeDataService.getSalesByDateAuthoritative(date, req.userId);
     if (!record) {
       return res.status(404).json({
         success: false,
@@ -264,30 +265,22 @@ router.get('/sales/:date', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 2. DAILY EXPENSES ENDPOINTS
+// 2. DAILY EXPENSES ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
 // Add expense
-router.post('/expenses', (req, res) => {
+router.post('/expenses', async (req, res) => {
   try {
     const { expense_date, expense_type, amount, description } = req.body;
-    const result = expenseService.addExpense({
-      expense_date,
-      expense_type,
-      amount,
-      description,
-      userId: req.userId,
-    });
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'CREATE',
-      entityType: 'expenses',
-      entityId: result.id,
-      payload: result,
-      date: expense_date,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Expenses hook error:', err.message));
+    const result = await authoritativeDataService.recordExpenseAuthoritative(
+      {
+        expense_date,
+        expense_type,
+        amount,
+        description,
+      },
+      req.userId
+    );
 
     res.status(201).json({
       success: true,
@@ -299,12 +292,12 @@ router.post('/expenses', (req, res) => {
 });
 
 // Get expenses list with filters (category, month, date range)
-router.get('/expenses', (req, res) => {
+router.get('/expenses', async (req, res) => {
   try {
     const { month, category, startDate, endDate, limit, offset } = req.query;
-    const items = expenseService.getExpenses({
+    const items = await authoritativeDataService.getExpensesAuthoritative({
       month,
-      category,
+      expenseType: category,
       startDate,
       endDate,
       limit: limit ? Number(limit) : 100,
@@ -322,10 +315,10 @@ router.get('/expenses', (req, res) => {
 });
 
 // Today's total expenses
-router.get('/expenses/today', (req, res) => {
+router.get('/expenses/today', async (req, res) => {
   try {
     const { date } = req.query;
-    const result = expenseService.getTodayExpensesTotal(date, req.userId);
+    const result = await authoritativeDataService.getTodayExpensesAuthoritative(date, req.userId);
     res.json({
       success: true,
       data: result,
@@ -336,11 +329,11 @@ router.get('/expenses/today', (req, res) => {
 });
 
 // Monthly total expenses and breakdown
-router.get('/expenses/monthly', (req, res) => {
+router.get('/expenses/monthly', async (req, res) => {
   try {
     const { month } = req.query;
     const targetMonth = month || calculationService.getCurrentMonthString();
-    const result = expenseService.getMonthlyTotalExpenses(targetMonth, req.userId);
+    const result = await authoritativeDataService.getMonthlyExpensesByCategoryAuthoritative(targetMonth, req.userId);
     res.json({
       success: true,
       data: result,
@@ -350,113 +343,54 @@ router.get('/expenses/monthly', (req, res) => {
   }
 });
 
-// Get single expense
-router.get('/expenses/:id', (req, res) => {
-  try {
-    const { id } = req.params;
-    const expense = expenseService.getExpenseById(id, req.userId);
-    if (!expense) {
-      return res.status(404).json({
-        success: false,
-        error: `Expense with ID ${id} not found.`,
-      });
-    }
-    res.json({
-      success: true,
-      data: expense,
-    });
-  } catch (error) {
-    handleError(res, error, 400);
-  }
-});
-
 // Update expense
-router.put('/expenses/:id', (req, res) => {
+router.put('/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { expense_date, expense_type, amount, description } = req.body;
-    const updated = expenseService.updateExpense(id, {
-      expense_date,
-      expense_type,
-      amount,
-      description,
-      userId: req.userId,
-    });
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'UPDATE',
-      entityType: 'expenses',
-      entityId: id,
-      payload: updated,
-      date: updated.expense_date,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Expenses hook error:', err.message));
+    const updated = await authoritativeDataService.updateExpenseAuthoritative(
+      id,
+      {
+        expense_date,
+        expense_type,
+        amount,
+        description,
+      },
+      req.userId
+    );
 
     res.json({
       success: true,
       data: updated,
     });
   } catch (error) {
-    const status = error.message.includes('not found') ? 404 : 400;
-    handleError(res, error, status);
+    handleError(res, error, 400);
   }
 });
 
 // Delete expense
-router.delete('/expenses/:id', (req, res) => {
+router.delete('/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = expenseService.deleteExpense(id, req.userId);
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'DELETE',
-      entityType: 'expenses',
-      entityId: id,
-      payload: { id },
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Expenses hook error:', err.message));
-
-    res.json(result);
-  } catch (error) {
-    const status = error.message.includes('not found') ? 404 : 400;
-    handleError(res, error, status);
-  }
-});
-
-// -------------------------------------------------------------
-// 3. STOCK MANAGEMENT & VARIETIES ENDPOINTS
-// -------------------------------------------------------------
-
-// List all varieties with current stock
-router.get('/stock/varieties', (req, res) => {
-  try {
-    const varieties = stockService.getAllVarieties(req.userId);
+    const result = await authoritativeDataService.deleteExpenseAuthoritative(id, req.userId);
     res.json({
       success: true,
-      count: varieties.length,
-      data: varieties,
+      data: result,
     });
   } catch (error) {
-    handleError(res, error, 500);
+    handleError(res, error, 400);
   }
 });
 
+// -------------------------------------------------------------
+// 3. STOCK & VARIETIES MANAGEMENT ENDPOINTS (Authoritative Cloud-First)
+// -------------------------------------------------------------
+
 // Add product variety
-router.post('/stock/varieties', (req, res) => {
+router.post('/stock/varieties', async (req, res) => {
   try {
     const { name } = req.body;
-    const result = stockService.addProductVariety(name, req.userId);
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'CREATE',
-      entityType: 'stock_variety',
-      entityId: result.id,
-      payload: result,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Stock Variety hook error:', err.message));
+    const result = await authoritativeDataService.addProductVarietyAuthoritative(name, req.userId);
 
     res.status(201).json({
       success: true,
@@ -467,11 +401,25 @@ router.post('/stock/varieties', (req, res) => {
   }
 });
 
-// Get single variety by ID
-router.get('/stock/varieties/:id', (req, res) => {
+// View all product varieties
+router.get('/stock/varieties', async (req, res) => {
+  try {
+    const varieties = await authoritativeDataService.getProductVarietiesAuthoritative(req.userId);
+    res.json({
+      success: true,
+      count: varieties.length,
+      data: varieties,
+    });
+  } catch (error) {
+    handleError(res, error, 500);
+  }
+});
+
+// View single product variety by ID
+router.get('/stock/varieties/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const variety = stockService.getVarietyById(id, req.userId);
+    const variety = await authoritativeDataService.getProductVarietyByIdAuthoritative(id, req.userId);
     if (!variety) {
       return res.status(404).json({
         success: false,
@@ -487,28 +435,20 @@ router.get('/stock/varieties/:id', (req, res) => {
   }
 });
 
-// Record Stock Movement (IN or OUT)
-router.post('/stock/movement', (req, res) => {
+// Record Stock Movement (IN / OUT)
+router.post(['/stock/entries', '/stock/movement'], async (req, res) => {
   try {
     const { product_id, movement_type, quantity, entry_date, notes } = req.body;
-    const result = stockService.recordStockMovement({
-      product_id,
-      movement_type,
-      quantity,
-      entry_date,
-      notes,
-      userId: req.userId,
-    });
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'CREATE',
-      entityType: 'stock_movement',
-      entityId: result.id,
-      payload: result,
-      date: entry_date,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Stock Movement hook error:', err.message));
+    const result = await authoritativeDataService.recordStockMovementAuthoritative(
+      {
+        product_id,
+        movement_type,
+        quantity,
+        entry_date,
+        notes,
+      },
+      req.userId
+    );
 
     res.status(201).json({
       success: true,
@@ -520,11 +460,11 @@ router.post('/stock/movement', (req, res) => {
 });
 
 // Retrieve Stock Movement History
-router.get('/stock/history', (req, res) => {
+router.get('/stock/history', async (req, res) => {
   try {
     const { product_id, startDate, endDate, limit, offset } = req.query;
-    const history = stockService.getStockHistory({
-      product_id: product_id ? Number(product_id) : undefined,
+    const history = await authoritativeDataService.getStockEntriesAuthoritative({
+      productId: product_id ? Number(product_id) : undefined,
       startDate,
       endDate,
       limit: limit ? Number(limit) : 100,
@@ -542,9 +482,9 @@ router.get('/stock/history', (req, res) => {
 });
 
 // Overall Stock Summary
-router.get('/stock/summary', (req, res) => {
+router.get('/stock/summary', async (req, res) => {
   try {
-    const summary = stockService.getTotalStockSummary(req.userId);
+    const summary = await authoritativeDataService.getStockSummaryAuthoritative(req.userId);
     res.json({
       success: true,
       data: summary,
@@ -555,33 +495,25 @@ router.get('/stock/summary', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 4. LENDER MANAGEMENT ENDPOINTS
+// 4. LENDER MANAGEMENT ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
 // Add lender
-router.post('/lenders', (req, res) => {
+router.post('/lenders', async (req, res) => {
   try {
     const { name, mobile, place, amount_given, amount_paid, loan_date, notes } = req.body;
-    const result = lenderService.addLender({
-      name,
-      mobile,
-      place,
-      amount_given,
-      amount_paid,
-      loan_date,
-      notes,
-      userId: req.userId,
-    });
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'CREATE',
-      entityType: 'lender',
-      entityId: result.id,
-      payload: result,
-      date: loan_date,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Lender hook error:', err.message));
+    const result = await authoritativeDataService.addLenderAuthoritative(
+      {
+        name,
+        mobile,
+        place,
+        amount_given,
+        amount_paid,
+        loan_date,
+        notes,
+      },
+      req.userId
+    );
 
     res.status(201).json({
       success: true,
@@ -593,9 +525,9 @@ router.post('/lenders', (req, res) => {
 });
 
 // View all lenders
-router.get('/lenders', (req, res) => {
+router.get('/lenders', async (req, res) => {
   try {
-    const lenders = lenderService.getAllLenders(req.userId);
+    const lenders = await authoritativeDataService.getLendersAuthoritative(req.userId);
     res.json({
       success: true,
       count: lenders.length,
@@ -607,12 +539,25 @@ router.get('/lenders', (req, res) => {
 });
 
 // Total lender dues summary
-router.get('/lenders/summary', (req, res) => {
+router.get('/lenders/summary', async (req, res) => {
   try {
-    const summary = lenderService.getTotalLenderSummary(req.userId);
+    const lenders = await authoritativeDataService.getLendersAuthoritative(req.userId);
+    const totalGiven = lenders.reduce((acc, l) => acc + Number(l.amount_given || 0), 0);
+    const totalPaid = lenders.reduce((acc, l) => acc + Number(l.amount_paid || 0), 0);
+    const totalBalance = totalGiven - totalPaid;
+    const activeCount = lenders.filter((l) => Number(l.amount_given || 0) - Number(l.amount_paid || 0) > 0).length;
+    const settledCount = lenders.length - activeCount;
+
     res.json({
       success: true,
-      data: summary,
+      data: {
+        total_lenders: lenders.length,
+        total_amount_given: totalGiven,
+        total_amount_paid: totalPaid,
+        total_balance_due: totalBalance,
+        active_loans_count: activeCount,
+        settled_loans_count: settledCount,
+      },
     });
   } catch (error) {
     handleError(res, error, 500);
@@ -620,10 +565,11 @@ router.get('/lenders/summary', (req, res) => {
 });
 
 // Get single lender
-router.get('/lenders/:id', (req, res) => {
+router.get('/lenders/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const lender = lenderService.getLenderById(id, req.userId);
+    const lenders = await authoritativeDataService.getLendersAuthoritative(req.userId);
+    const lender = lenders.find((l) => Number(l.id) === Number(id));
     if (!lender) {
       return res.status(404).json({
         success: false,
@@ -640,19 +586,15 @@ router.get('/lenders/:id', (req, res) => {
 });
 
 // Update lender
-router.put('/lenders/:id', (req, res) => {
+router.put('/lenders/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updated = lenderService.updateLender(id, { ...req.body, userId: req.userId });
 
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'UPDATE',
-      entityType: 'lender',
-      entityId: id,
-      payload: updated,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Lender hook error:', err.message));
+    // Sync to cloud if configured
+    if (supabaseService.isSupabaseConfigured()) {
+      supabaseService.createCloudLender(req.userId, updated).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -664,21 +606,17 @@ router.put('/lenders/:id', (req, res) => {
   }
 });
 
-// Record lender payment (supports both PATCH and POST)
-const handleLenderPayment = (req, res) => {
+// Record lender repayment
+const handleLenderPayment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { payment_amount } = req.body;
-    const result = lenderService.recordLenderPayment(id, payment_amount, req.userId);
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'PAYMENT',
-      entityType: 'lender',
-      entityId: id,
-      payload: result,
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Lender hook error:', err.message));
+    const { payment_amount, notes } = req.body;
+    const result = await authoritativeDataService.recordLenderRepaymentAuthoritative(
+      id,
+      payment_amount,
+      notes,
+      req.userId
+    );
 
     res.json({
       success: true,
@@ -691,22 +629,13 @@ const handleLenderPayment = (req, res) => {
 };
 router.patch('/lenders/:id/pay', handleLenderPayment);
 router.post('/lenders/:id/pay', handleLenderPayment);
+router.post('/lenders/:id/repay', handleLenderPayment);
 
 // Delete lender
-router.delete('/lenders/:id', (req, res) => {
+router.delete('/lenders/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = lenderService.deleteLender(id, req.userId);
-
-    // Automatic cloud backup sync hook
-    cloudBackupService.triggerCloudSync({
-      mutationType: 'DELETE',
-      entityType: 'lender',
-      entityId: id,
-      payload: { id },
-      userId: req.userId,
-    }).catch((err) => console.error('[CloudSync] Lender hook error:', err.message));
-
     res.json(result);
   } catch (error) {
     const status = error.message.includes('not found') ? 404 : 400;
@@ -715,17 +644,27 @@ router.delete('/lenders/:id', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 5. AUTOMATIC CALCULATIONS & DASHBOARD ENDPOINTS
+// 5. AUTOMATIC CALCULATIONS & DASHBOARD ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
 // Today metrics: Today's Sales, Today's Expenses, Today's Net Amount
-router.get('/calculations/today', (req, res) => {
+router.get('/calculations/today', async (req, res) => {
   try {
     const { date } = req.query;
-    const metrics = calculationService.calculateTodayMetrics(date, req.userId);
+    const targetDate = date || salesService.getTodayDateString();
+    const todaySales = await authoritativeDataService.getTodaySalesAuthoritative(targetDate, req.userId);
+    const todayExpenses = await authoritativeDataService.getTodayExpensesAuthoritative(targetDate, req.userId);
+    const net = todaySales.total_sales_amount - todayExpenses.today_expenses;
+
     res.json({
       success: true,
-      data: metrics,
+      data: {
+        date: targetDate,
+        today_sales: todaySales.total_sales_amount,
+        today_expenses: todayExpenses.today_expenses,
+        today_net_amount: net,
+        is_surplus: net >= 0,
+      },
     });
   } catch (error) {
     handleError(res, error, 400);
@@ -733,24 +672,54 @@ router.get('/calculations/today', (req, res) => {
 });
 
 // Monthly metrics: Total Sales, Total Expenses, Monthly Turnover, Net Balance
-router.get('/calculations/monthly', (req, res) => {
+router.get('/calculations/monthly', async (req, res) => {
   try {
     const { month } = req.query;
-    const metrics = calculationService.calculateMonthlyMetrics(month, req.userId);
+    const targetMonth = month || calculationService.getCurrentMonthString();
+    const salesData = await authoritativeDataService.getMonthlyTotalSalesAuthoritative(targetMonth, req.userId);
+    const expensesData = await authoritativeDataService.getMonthlyExpensesByCategoryAuthoritative(targetMonth, req.userId);
+
+    const mSales = salesData.monthly_sales;
+    const mExp = expensesData.monthly_expenses;
+    const net = mSales - mExp;
+
     res.json({
       success: true,
-      data: metrics,
+      data: {
+        month: targetMonth,
+        monthly_sales: mSales,
+        monthly_expenses: mExp,
+        monthly_turnover: mSales,
+        monthly_net_balance: net,
+        is_surplus: net >= 0,
+        expense_breakdown: expensesData.breakdown,
+      },
     });
   } catch (error) {
     handleError(res, error, 400);
   }
 });
 
-// Master Dashboard KPI Summary (All 9 metrics)
-router.get('/calculations/dashboard', (req, res) => {
+// Master Dashboard KPI Summary (All metrics)
+router.get('/calculations/dashboard', async (req, res) => {
   try {
-    const { date, month } = req.query;
-    const summary = calculationService.getDashboardSummary({ date, month, userId: req.userId });
+    const { month } = req.query;
+    const targetMonth = month || calculationService.getCurrentMonthString();
+    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative(targetMonth, req.userId);
+    res.json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    handleError(res, error, 500);
+  }
+});
+
+router.get('/calculations/summary', async (req, res) => {
+  try {
+    const { month } = req.query;
+    const targetMonth = month || calculationService.getCurrentMonthString();
+    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative(targetMonth, req.userId);
     res.json({
       success: true,
       data: summary,
@@ -765,7 +734,7 @@ router.get('/calculations/dashboard', (req, res) => {
 // -------------------------------------------------------------
 
 // Get monthly report data (JSON)
-router.get('/reports/monthly', (req, res) => {
+router.get('/reports/monthly', async (req, res) => {
   try {
     const { month } = req.query;
     const targetMonth = month || calculationService.getCurrentMonthString();
@@ -780,7 +749,7 @@ router.get('/reports/monthly', (req, res) => {
 });
 
 // Download monthly report file (CSV or JSON)
-router.get('/reports/monthly/download', (req, res) => {
+router.get('/reports/monthly/download', async (req, res) => {
   try {
     const { month, format } = req.query;
     const targetMonth = month || calculationService.getCurrentMonthString();
@@ -809,7 +778,7 @@ router.get('/reports/monthly/download', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 7. AUTOMATIC CLOUD DATABASE BACKUP
+// 7. CLOUD DATABASE BACKUP & RESTORE
 // -------------------------------------------------------------
 
 // Get current cloud backup status & configuration state
@@ -842,7 +811,7 @@ router.get('/cloud-backup/history', (req, res) => {
 // Manual trigger to flush/retry pending or failed cloud syncs
 router.post('/cloud-backup/sync-now', async (req, res) => {
   try {
-    const result = await cloudBackupService.retryPendingSyncs(req.userId);
+    const result = await authoritativeDataService.flushOfflineQueue(req.userId);
     res.json({
       success: true,
       data: result,
@@ -896,7 +865,7 @@ router.post('/cloud-provider/sync-pending', async (req, res) => {
   }
 });
 
-// Reconcile cloud data to local SQLite cache (Device Loss / New Device flow)
+// Reconcile cloud data to local SQLite cache
 router.post('/cloud-provider/reconcile', async (req, res) => {
   try {
     const result = await authoritativeDataService.reconcileCloudToLocal(req.userId);
