@@ -12,7 +12,11 @@ const nativeFetch = window.fetch;
 window.fetch = (url, options = {}) => {
   let targetUrl = url;
   if (typeof url === 'string' && url.startsWith('/api') && API_BASE) {
-    targetUrl = `${API_BASE}${url}`;
+    if (API_BASE.endsWith('/api')) {
+      targetUrl = `${API_BASE}${url.slice(4)}`;
+    } else {
+      targetUrl = `${API_BASE}${url}`;
+    }
   }
 
   const token = localStorage.getItem('auth_token');
