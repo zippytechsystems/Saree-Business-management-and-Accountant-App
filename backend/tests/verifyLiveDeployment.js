@@ -1,0 +1,190 @@
+/**
+ * LIVE DEPLOYMENT VERIFICATION SUITE
+ * Tests the live deployed Render Backend, Vercel Frontend, and Supabase integration.
+ *
+ * Usage:
+ *   node backend/tests/verifyLiveDeployment.js <RENDER_BACKEND_URL> <VERCEL_FRONTEND_URL>
+ * Example:
+ *   node backend/tests/verifyLiveDeployment.js https://saree-business-backend.onrender.com https://saree-business-app.vercel.app
+ */
+
+const backendUrl = (process.argv[2] || process.env.RENDER_URL || '').replace(/\/+$/, '');
+const frontendUrl = (process.argv[3] || process.env.VERCEL_URL || '').replace(/\/+$/, '');
+
+if (!backendUrl || !frontendUrl) {
+  console.error('\n❌ ERROR: Missing target deployment URLs!');
+  console.error('Usage: node backend/tests/verifyLiveDeployment.js <RENDER_BACKEND_URL> <VERCEL_FRONTEND_URL>');
+  console.error('Example: node backend/tests/verifyLiveDeployment.js https://my-backend.onrender.com https://my-frontend.vercel.app\n');
+  process.exit(1);
+}
+
+let passed = 0;
+let failed = 0;
+
+function assert(condition, message) {
+  if (condition) {
+    console.log(`  ✓ [PASS] ${message}`);
+    passed++;
+  } else {
+    console.error(`  ✗ [FAIL] ${message}`);
+    failed++;
+    throw new Error(`Assertion failed: ${message}`);
+  }
+}
+
+async function runLiveVerification() {
+  console.log('================================================================');
+  console.log('STARTING LIVE PRODUCTION DEPLOYMENT VERIFICATION');
+  console.log('================================================================');
+  console.log(`Backend Target:  ${backendUrl}`);
+  console.log(`Frontend Target: ${frontendUrl}\n`);
+
+  // --- Step 1: Frontend CDN & SPA Delivery ---
+  console.log('--- 1. Testing Vercel Frontend Delivery ---');
+  const feRes = await fetch(frontendUrl);
+  assert(feRes.status === 200, `Frontend root returns HTTP 200 (Status: ${feRes.status})`);
+  const feHtml = await feRes.text();
+  assert(feHtml.includes('id="root"'), 'Frontend HTML serves React mounting root element');
+  assert(feHtml.includes('<script type="module"'), 'Frontend loads optimized Vite JavaScript bundle');
+
+  // --- Step 2: Render Backend Health & Supabase Connectivity ---
+  console.log('\n--- 2. Testing Render Backend Health & Supabase Cloud Status ---');
+  const healthRes = await fetch(`${backendUrl}/api/health`);
+  assert(healthRes.status === 200, `Health check responds HTTP 200 (Status: ${healthRes.status})`);
+  const healthJson = await healthRes.json();
+  assert(healthJson.success === true, 'Health check reports success: true');
+  assert(healthJson.database.supabase_configured === true, 'Backend reports Supabase is configured');
+  assert(healthJson.database.supabase_connected === true, 'Backend successfully connected to live Supabase');
+  assert(healthJson.database.mode === 'authoritative_supabase', 'Database mode is "authoritative_supabase"');
+
+  // --- Step 3: Production CORS Preflight Headers ---
+  console.log('\n--- 3. Testing Production CORS Preflight between Vercel & Render ---');
+  const corsRes = await fetch(`${backendUrl}/api/sales`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: frontendUrl,
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'Content-Type, Authorization',
+    },
+  });
+  const allowOrigin = corsRes.headers.get('access-control-allow-origin');
+  assert(
+    allowOrigin === frontendUrl || allowOrigin === '*',
+    `CORS permits frontend origin (Access-Control-Allow-Origin: ${allowOrigin})`
+  );
+  assert(
+    corsRes.headers.get('access-control-allow-methods')?.includes('POST'),
+    'CORS preflight allows POST requests'
+  );
+
+  // --- Step 4: End-to-End Authentication Flow ---
+  console.log('\n--- 4. Testing Live Authentication Flow ---');
+  const testRunId = Date.now();
+  const testUsername = `deploy_user_${testRunId}`;
+  const testPassword = `Pass#${testRunId}!`;
+
+  const signupRes = await fetch(`${backendUrl}/api/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: testUsername,
+      password: testPassword,
+      confirmPassword: testPassword,
+    }),
+  });
+  assert(signupRes.status === 201, `New owner account registered HTTP 201 (Status: ${signupRes.status})`);
+  const signupJson = await signupRes.json();
+  assert(Boolean(signupJson.token), 'Authentication session token returned');
+  const authToken = signupJson.token;
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${authToken}`,
+  };
+
+  // --- Step 5: Live Database Read / Write Persistence ---
+  console.log('\n--- 5. Testing Live Database Read/Write to Supabase Cloud ---');
+  // 5.1 Business Profile
+  const profileRes = await fetch(`${backendUrl}/api/business-profile`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      business_name: `Saree Store Live ${testRunId}`,
+      business_address: '123 Textile Street, Surat',
+      business_nickname: 'Surat Store',
+    }),
+  });
+  assert(profileRes.status === 200, 'Business profile created HTTP 200');
+
+  // 5.2 Product Variety
+  const varietyRes = await fetch(`${backendUrl}/api/stock/varieties`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      name: `Kanchipuram Silk ${testRunId}`,
+    }),
+  });
+  assert(varietyRes.status === 201, 'Product variety created HTTP 201');
+  const varietyJson = await varietyRes.json();
+  const varietyId = varietyJson.data.id;
+
+  // 5.3 Stock Movement
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const stockRes = await fetch(`${backendUrl}/api/stock/entries`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      product_id: varietyId,
+      movement_type: 'IN',
+      quantity: 50,
+      entry_date: todayStr,
+      notes: 'Initial Deployment Test Stock',
+    }),
+  });
+  assert(stockRes.status === 201, 'Stock movement (50 units IN) recorded HTTP 201');
+
+  // 5.4 Daily Sale
+  const saleRes = await fetch(`${backendUrl}/api/sales`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      entry_date: todayStr,
+      total_sales_amount: 35000,
+    }),
+  });
+  assert(saleRes.status === 200, 'Daily sale (₹35,000) recorded HTTP 200');
+
+  // 5.5 Expense
+  const expRes = await fetch(`${backendUrl}/api/expenses`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      expense_date: todayStr,
+      expense_type: 'Bills',
+      amount: 5000,
+      description: 'Electricity bill deployment test',
+    }),
+  });
+  assert(expRes.status === 201, 'Expense (₹5,000) recorded HTTP 201');
+
+  // 5.6 Dashboard Read Calculation
+  const dashRes = await fetch(`${backendUrl}/api/calculations/dashboard`, {
+    headers: authHeaders,
+  });
+  assert(dashRes.status === 200, 'Dashboard calculations fetch responds HTTP 200');
+  const dashJson = await dashRes.json();
+  assert(dashJson.data.today_sales === 35000, 'Dashboard confirms today sales: ₹35,000');
+  assert(dashJson.data.today_expenses === 5000, 'Dashboard confirms today expenses: ₹5,000');
+  assert(dashJson.data.today_net_profit === 30000, 'Dashboard confirms today net profit: 35,000 - 5,000 = ₹30,000');
+  assert(dashJson.data.current_stock === 50, 'Dashboard confirms inventory stock: 50 units');
+
+  console.log('\n================================================================');
+  console.log(`✅ LIVE VERIFICATION COMPLETED: ${passed} PASSED / 0 FAILED`);
+  console.log('   Vercel Frontend <-> Render Backend <-> Supabase Cloud');
+  console.log('   Full End-to-End Production Pipeline is 100% OPERATIONAL!');
+  console.log('================================================================\n');
+}
+
+runLiveVerification().catch((err) => {
+  console.error('\n❌ LIVE VERIFICATION FAILED:', err.message);
+  process.exit(1);
+});
