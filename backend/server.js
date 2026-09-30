@@ -54,6 +54,20 @@ try {
 // Routes
 app.use('/api', apiRoutes);
 
+// Root informational endpoint for Render / API consumers
+app.get('/', (req, res, next) => {
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      res.json({
+        status: 'online',
+        service: 'Saree Business Management & Accountant Backend API',
+        health: '/api/health',
+      });
+    }
+  });
+});
+
 // Serve static frontend production build
 app.use(express.static(distPath));
 

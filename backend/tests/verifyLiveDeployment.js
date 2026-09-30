@@ -128,7 +128,8 @@ async function runLiveVerification() {
   const varietyId = varietyJson.data.id;
 
   // 5.3 Stock Movement
-  const todayStr = new Date().toISOString().substring(0, 10);
+  const d = new Date();
+  const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const stockRes = await fetch(`${backendUrl}/api/stock/entries`, {
     method: 'POST',
     headers: authHeaders,
@@ -172,10 +173,15 @@ async function runLiveVerification() {
   });
   assert(dashRes.status === 200, 'Dashboard calculations fetch responds HTTP 200');
   const dashJson = await dashRes.json();
-  assert(dashJson.data.today_sales === 35000, 'Dashboard confirms today sales: ₹35,000');
-  assert(dashJson.data.today_expenses === 5000, 'Dashboard confirms today expenses: ₹5,000');
-  assert(dashJson.data.today_net_profit === 30000, 'Dashboard confirms today net profit: 35,000 - 5,000 = ₹30,000');
-  assert(dashJson.data.current_stock === 50, 'Dashboard confirms inventory stock: 50 units');
+  const salesVal = dashJson.data?.today?.today_sales ?? dashJson.data?.today_sales;
+  const expVal = dashJson.data?.today?.today_expenses ?? dashJson.data?.today_expenses;
+  const netVal = dashJson.data?.today?.today_net_amount ?? dashJson.data?.today_net_profit;
+  const stockVal = dashJson.data?.stock?.current_stock ?? dashJson.data?.current_stock;
+
+  assert(salesVal === 35000, `Dashboard confirms today sales: ₹${salesVal}`);
+  assert(expVal === 5000, `Dashboard confirms today expenses: ₹${expVal}`);
+  assert(netVal === 30000, `Dashboard confirms today net profit: 35,000 - 5,000 = ₹${netVal}`);
+  assert(stockVal === 50, `Dashboard confirms inventory stock: ${stockVal} units`);
 
   console.log('\n================================================================');
   console.log(`✅ LIVE VERIFICATION COMPLETED: ${passed} PASSED / 0 FAILED`);

@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: saree-business-accountant-app
+    name: saree-business-backend
     env: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: npm install
+    startCommand: node backend/server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -19,3 +19,5 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: CORS_ORIGIN
+        value: "*"
