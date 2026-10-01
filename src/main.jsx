@@ -23,7 +23,7 @@ window.fetch = (url, options = {}) => {
     }
   }
 
-  const token = localStorage.getItem('auth_token');
+  const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
   const isApiRequest = typeof targetUrl === 'string' && (targetUrl.startsWith('/api') || (API_BASE && targetUrl.startsWith(API_BASE)));
 
   if (token && isApiRequest) {

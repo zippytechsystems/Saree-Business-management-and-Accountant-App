@@ -64,9 +64,11 @@ export default function AuthScreen({ onAuthSuccess }) {
         throw new Error(data.error || 'Authentication failed. Please check credentials.');
       }
 
-      // Store only the secure JWT/session token - NEVER store passwords in localStorage
+      // Store session token in sessionStorage for maximum privacy & secrecy
+      // When the browser tab or app is closed, session is automatically cleared!
       if (data.token) {
-        localStorage.setItem('auth_token', data.token);
+        sessionStorage.setItem('auth_token', data.token);
+        localStorage.removeItem('auth_token');
       }
 
       if (onAuthSuccess) {

@@ -114,6 +114,7 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
     } catch (e) {
       // Ignore network errors on logout
     }
+    sessionStorage.removeItem('auth_token');
     localStorage.removeItem('auth_token');
     if (onLogout) {
       onLogout();

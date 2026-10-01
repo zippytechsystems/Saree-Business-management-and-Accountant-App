@@ -1,7 +1,7 @@
 import React from 'react';
-import { Store, Calendar, ShieldCheck } from 'lucide-react';
+import { Store, Calendar, Lock } from 'lucide-react';
 
-export default function Header({ businessProfile, user }) {
+export default function Header({ businessProfile, user, onLogout }) {
   const currentDate = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
@@ -28,6 +28,18 @@ export default function Header({ businessProfile, user }) {
           <Calendar size={13} />
           <span>{currentDate}</span>
         </div>
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="btn-lock-header"
+            title="Lock & Logout (లాగౌట్ - సీక్రెట్ మోడ్)"
+            aria-label="Lock App"
+          >
+            <Lock size={13} />
+            <span>Lock</span>
+          </button>
+        )}
       </div>
     </header>
   );

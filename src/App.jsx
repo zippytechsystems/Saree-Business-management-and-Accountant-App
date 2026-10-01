@@ -52,7 +52,12 @@ export default function App() {
 
   // Verify and restore authenticated session on app launch
   const checkSession = async () => {
-    const token = localStorage.getItem('auth_token');
+    // Read from sessionStorage ONLY for maximum privacy.
+    // When the browser tab/app is closed, session is cleared automatically!
+    const token = sessionStorage.getItem('auth_token');
+    // Wipe legacy localStorage token to prevent unauthorized access
+    localStorage.removeItem('auth_token');
+
     if (!token) {
       setAuthState({
         loading: false,
@@ -86,6 +91,7 @@ export default function App() {
         });
       } else {
         // Invalid or expired token
+        sessionStorage.removeItem('auth_token');
         localStorage.removeItem('auth_token');
         setAuthState({
           loading: false,
@@ -142,7 +148,15 @@ export default function App() {
     setActiveTab('dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+    if (token) {
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+    sessionStorage.removeItem('auth_token');
     localStorage.removeItem('auth_token');
     setAuthState({
       loading: false,
