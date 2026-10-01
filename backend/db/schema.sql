@@ -103,13 +103,9 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_business_profiles_user ON business_profiles(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_stock_product_date ON stock_entries(product_id, entry_date);
-CREATE INDEX IF NOT EXISTS idx_stock_entries_user ON stock_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_daily_sales_date ON daily_sales(entry_date);
-CREATE INDEX IF NOT EXISTS idx_daily_sales_user ON daily_sales(user_id, entry_date);
 CREATE INDEX IF NOT EXISTS idx_expenses_date_type ON expenses(expense_date, expense_type);
-CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id, expense_date);
 CREATE INDEX IF NOT EXISTS idx_lenders_name ON lenders(name);
-CREATE INDEX IF NOT EXISTS idx_lenders_user ON lenders(user_id);
 
 -- 6. Automatic Cloud Backup Sync Log (Queue & History)
 CREATE TABLE IF NOT EXISTS cloud_sync_log (
@@ -136,4 +132,3 @@ CREATE TABLE IF NOT EXISTS cloud_backup_meta (
 
 CREATE INDEX IF NOT EXISTS idx_cloud_sync_status ON cloud_sync_log(status);
 CREATE INDEX IF NOT EXISTS idx_cloud_sync_month ON cloud_sync_log(year_month);
-CREATE INDEX IF NOT EXISTS idx_cloud_sync_user ON cloud_sync_log(user_id);

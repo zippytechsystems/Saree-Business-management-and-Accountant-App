@@ -82,9 +82,9 @@ export function runAuthMigration() {
 
   for (const table of tables) {
     const columns = db.prepare(`PRAGMA table_info(${table});`).all().map(c => c.name);
-    if (!columns.includes('user_id')) {
+    if (columns.length > 0 && !columns.includes('user_id')) {
       console.log(`[Migration] Adding user_id column to ${table}...`);
-      db.exec(`ALTER TABLE ${table} ADD COLUMN user_id INTEGER;`);
+      db.exec(`ALTER TABLE ${table} ADD COLUMN user_id INTEGER DEFAULT 1;`);
       // Update any existing rows to point to user_id = 1
       db.exec(`UPDATE ${table} SET user_id = 1 WHERE user_id IS NULL;`);
     }
@@ -98,6 +98,7 @@ export function runAuthMigration() {
     CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id, expense_date);
     CREATE INDEX IF NOT EXISTS idx_lenders_user ON lenders(user_id);
     CREATE INDEX IF NOT EXISTS idx_cloud_sync_log_user ON cloud_sync_log(user_id);
+    CREATE INDEX IF NOT EXISTS idx_cloud_sync_user ON cloud_sync_log(user_id);
   `);
 
   // 6.1 Ensure idempotency_key exists on cloud_sync_log

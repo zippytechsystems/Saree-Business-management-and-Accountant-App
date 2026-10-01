@@ -21,6 +21,8 @@ Configure these environment variables in your deployment dashboard:
 | `CLOUD_BACKUP_PROVIDER` | Active cloud provider | `supabase` |
 | `SUPABASE_URL` | Supabase Project URL | `https://your-project.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret service-role API key | `eyJhbGciOi...` (bypasses RLS for backend) |
+| `CORS_ORIGIN` | (Backend) Allowed frontend domains for CORS | `https://your-site.netlify.app` or `*` |
+| `VITE_API_URL` | (Frontend / Netlify) Deployed Railway backend URL | `https://your-backend.up.railway.app` |
 
 > [!CAUTION]
 > **Never commit `.env` or `SUPABASE_SERVICE_ROLE_KEY` to GitHub or public repositories.** Keep it strictly in your host provider's encrypted environment variable settings.
@@ -72,6 +74,33 @@ A multi-stage production [`Dockerfile`](./Dockerfile) and [`.dockerignore`](./.d
      -e SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key \
      --name saree-app saree-business-app:latest
    ```
+
+---
+
+### Option D: Railway (Backend) + Netlify (Frontend)
+For decoupled architectures with the Node.js Express API on Railway and the React Vite SPA on Netlify:
+
+1. **Deploy Backend on Railway**:
+   - Create a service pointing to this repository (or `backend/` directory).
+   - In Railway **Variables**, configure:
+     - `PORT=5000`
+     - `NODE_ENV=production`
+     - `JWT_SECRET=your-secure-jwt-secret`
+     - `CLOUD_BACKUP_PROVIDER=supabase`
+     - `SUPABASE_URL=https://your-project.supabase.co`
+     - `SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key`
+     - `CORS_ORIGIN=https://your-site.netlify.app` (or `*`)
+   - In Railway **Settings > Networking**, generate a **Public Domain** (e.g., `https://saree-backend-production.up.railway.app`).
+
+2. **Deploy Frontend on Netlify**:
+   - Link your GitHub repository in [Netlify](https://app.netlify.com).
+   - **Build settings**:
+     - Build command: `npm run build`
+     - Publish directory: `dist`
+   - In **Site configuration > Environment variables**, add:
+     - **Key**: `VITE_API_URL`
+     - **Value**: `https://<your-railway-backend>.up.railway.app` *(Your Railway public HTTPS URL, without trailing slash)*
+   - Trigger a deploy or push to trigger automatic build.
 
 ---
 

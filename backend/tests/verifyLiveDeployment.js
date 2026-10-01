@@ -58,7 +58,7 @@ async function runLiveVerification() {
   assert(healthJson.database.mode === 'authoritative_supabase', 'Database mode is "authoritative_supabase"');
 
   // --- Step 3: Production CORS Preflight Headers ---
-  console.log('\n--- 3. Testing Production CORS Preflight between Vercel & Render ---');
+  console.log('\n--- 3. Testing Production CORS Preflight between Frontend & Backend ---');
   const corsRes = await fetch(`${backendUrl}/api/sales`, {
     method: 'OPTIONS',
     headers: {
@@ -75,6 +75,21 @@ async function runLiveVerification() {
   assert(
     corsRes.headers.get('access-control-allow-methods')?.includes('POST'),
     'CORS preflight allows POST requests'
+  );
+
+  // Netlify Origin Preflight Test
+  const netlifyCorsRes = await fetch(`${backendUrl}/api/health`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'https://preview-deploy.netlify.app',
+      'Access-Control-Request-Method': 'GET',
+      'Access-Control-Request-Headers': 'Content-Type, Authorization',
+    },
+  });
+  const netlifyAllowOrigin = netlifyCorsRes.headers.get('access-control-allow-origin');
+  assert(
+    netlifyAllowOrigin === 'https://preview-deploy.netlify.app' || netlifyAllowOrigin === '*',
+    `CORS permits Netlify origins (Access-Control-Allow-Origin: ${netlifyAllowOrigin})`
   );
 
   // --- Step 4: End-to-End Authentication Flow ---

@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 5000;
 
 // Security & Parsing Middleware with Body Limits (1MB) and Production CORS
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim().replace(/\/+$/, ''))
   : '*';
 
 const corsMiddleware = cors({
@@ -24,15 +24,19 @@ const corsMiddleware = cors({
     // Requests without origin header (mobile, curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
 
+    const cleanOrigin = origin.replace(/\/+$/, '');
+
     if (
       allowedOrigins === '*' ||
-      allowedOrigins.includes(origin) ||
-      origin.endsWith('.vercel.app') ||
-      origin.startsWith('http://localhost:')
+      (Array.isArray(allowedOrigins) && (allowedOrigins.includes('*') || allowedOrigins.includes(cleanOrigin))) ||
+      cleanOrigin.endsWith('.netlify.app') ||
+      cleanOrigin.endsWith('.vercel.app') ||
+      cleanOrigin.startsWith('http://localhost:') ||
+      cleanOrigin.startsWith('http://127.0.0.1:')
     ) {
       return callback(null, origin);
     }
-    return callback(null, origin);
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
