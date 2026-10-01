@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   LayoutDashboard,
   Boxes,
@@ -24,7 +24,7 @@ export const NAV_ITEMS = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
-export function DesktopSidebar({ activeTab, onSelectTab }) {
+export const DesktopSidebar = memo(function DesktopSidebar({ activeTab, onSelectTab }) {
   return (
     <aside className="desktop-sidebar">
       <div className="sidebar-header">
@@ -55,9 +55,9 @@ export function DesktopSidebar({ activeTab, onSelectTab }) {
       </nav>
     </aside>
   );
-}
+});
 
-export function MobileBottomNav({ activeTab, onSelectTab }) {
+export const MobileBottomNav = memo(function MobileBottomNav({ activeTab, onSelectTab }) {
   return (
     <nav className="mobile-bottom-nav">
       {NAV_ITEMS.map((item) => {
@@ -77,4 +77,5 @@ export function MobileBottomNav({ activeTab, onSelectTab }) {
       })}
     </nav>
   );
-}
+});
+

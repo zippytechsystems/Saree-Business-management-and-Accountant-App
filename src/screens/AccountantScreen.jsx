@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   BookOpenCheck,
   TrendingUp,
@@ -17,7 +17,7 @@ import {
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
 import Toast from '../components/common/Toast';
-import { formatCurrency, formatDate, getTodayDateString } from '../utils/formatters';
+import { formatCurrency, formatDate, getTodayDateString, getCurrentMonthString } from '../utils/formatters';
 
 const APPROVED_EXPENSE_CATEGORIES = [
   'Bills',
@@ -29,7 +29,7 @@ const APPROVED_EXPENSE_CATEGORIES = [
 
 export default function AccountantScreen() {
   const [activeLedger, setActiveLedger] = useState('sales'); // 'sales', 'expenses', 'stock', 'suppliers'
-  const [selectedMonth, setSelectedMonth] = useState('2026-09'); // Default to active month
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthString); // Dynamic current month
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
@@ -62,21 +62,30 @@ export default function AccountantScreen() {
     total_sales_amount: '',
   });
 
+  const loadStockData = async () => {
+    try {
+      const [stockRes, stockSumRes] = await Promise.all([
+        fetch('/api/stock/history?limit=100').then((r) => r.json()),
+        fetch('/api/stock/summary').then((r) => r.json()),
+      ]);
+      if (stockRes.success) setStockRecords(stockRes.data);
+      if (stockSumRes.success) setStockSummary(stockSumRes.data);
+    } catch (err) {
+      console.warn('Failed to load stock ledger:', err);
+    }
+  };
+
   const loadLedgerData = async () => {
     setLoading(true);
     try {
       const monthQuery = selectedMonth ? `month=${selectedMonth}&` : '';
-      const [salesRes, expRes, stockRes, stockSumRes] = await Promise.all([
+      const [salesRes, expRes] = await Promise.all([
         fetch(`/api/sales?${monthQuery}limit=100`).then((r) => r.json()),
         fetch(`/api/expenses?${monthQuery}limit=100`).then((r) => r.json()),
-        fetch('/api/stock/history?limit=100').then((r) => r.json()),
-        fetch('/api/stock/summary').then((r) => r.json()),
       ]);
 
       if (salesRes.success) setSalesRecords(salesRes.data);
       if (expRes.success) setExpenseRecords(expRes.data);
-      if (stockRes.success) setStockRecords(stockRes.data);
-      if (stockSumRes.success) setStockSummary(stockSumRes.data);
     } catch (err) {
       setToast({ type: 'error', message: 'Failed to load ledger data: ' + err.message });
     } finally {
@@ -84,6 +93,12 @@ export default function AccountantScreen() {
     }
   };
 
+  // Load stock history once on mount
+  useEffect(() => {
+    loadStockData();
+  }, []);
+
+  // Reload month-dependent ledgers when selectedMonth changes
   useEffect(() => {
     loadLedgerData();
   }, [selectedMonth]);
@@ -199,17 +214,31 @@ export default function AccountantScreen() {
     }
   };
 
-  // Computed Totals for Active Period
-  const totalPeriodSales = salesRecords.reduce((sum, r) => sum + Number(r.total_sales_amount || 0), 0);
+  // Computed Totals for Active Period (Memoized to prevent render latency during form typing)
+  const totalPeriodSales = useMemo(
+    () => salesRecords.reduce((sum, r) => sum + Number(r.total_sales_amount || 0), 0),
+    [salesRecords]
+  );
 
-  const filteredExpenses = expenseRecords.filter((r) => {
-    if (expenseCategoryFilter && r.expense_type !== expenseCategoryFilter) return false;
-    return true;
-  });
-  const totalPeriodExpenses = filteredExpenses.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const filteredExpenses = useMemo(
+    () => expenseRecords.filter((r) => !expenseCategoryFilter || r.expense_type === expenseCategoryFilter),
+    [expenseRecords, expenseCategoryFilter]
+  );
 
-  const supplierPaymentsRecords = expenseRecords.filter((r) => r.expense_type === 'Supplier payments');
-  const totalSupplierPayments = supplierPaymentsRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const totalPeriodExpenses = useMemo(
+    () => filteredExpenses.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    [filteredExpenses]
+  );
+
+  const supplierPaymentsRecords = useMemo(
+    () => expenseRecords.filter((r) => r.expense_type === 'Supplier payments'),
+    [expenseRecords]
+  );
+
+  const totalSupplierPayments = useMemo(
+    () => supplierPaymentsRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    [supplierPaymentsRecords]
+  );
 
   return (
     <div>

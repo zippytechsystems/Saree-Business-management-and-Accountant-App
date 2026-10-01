@@ -14,6 +14,7 @@ import {
   PieChart,
   ArrowRight,
   Sparkles,
+  IndianRupee,
 } from 'lucide-react';
 import Card from '../components/common/Card';
 import { formatCurrency, formatMonth, getCurrentMonthString } from '../utils/formatters';
@@ -68,49 +69,64 @@ export default function CalculationsScreen() {
   });
   const [stockVarieties, setStockVarieties] = useState([]);
 
-  const loadCalculationData = async (targetMonth) => {
-    setLoading(true);
-    setError(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
+  const loadStaticMetrics = async () => {
     try {
-      const [todayRes, monthlyRes, lenderSumRes, lendersRes, stockSumRes, varietiesRes] =
+      const [todayRes, lenderSumRes, lendersRes, stockSumRes, varietiesRes] =
         await Promise.all([
           fetch('/api/calculations/today').then((r) => r.json()),
-          fetch(`/api/calculations/monthly?month=${targetMonth}`).then((r) => r.json()),
           fetch('/api/lenders/summary').then((r) => r.json()),
           fetch('/api/lenders').then((r) => r.json()),
           fetch('/api/stock/summary').then((r) => r.json()),
           fetch('/api/stock/varieties').then((r) => r.json()),
         ]);
 
-      if (todayRes.success) {
-        setTodayData(todayRes.data);
-      }
+      if (todayRes.success) setTodayData(todayRes.data);
+      if (lenderSumRes.success) setLenderSummary(lenderSumRes.data);
+      if (lendersRes.success) setLendersList(lendersRes.data);
+      if (stockSumRes.success) setStockSummary(stockSumRes.data);
+      if (varietiesRes.success) setStockVarieties(varietiesRes.data);
+    } catch (err) {
+      console.error('Error fetching static calculation metrics:', err);
+    }
+  };
+
+  const loadMonthlyData = async (targetMonth) => {
+    setMonthlyLoading(true);
+    try {
+      const monthlyRes = await fetch(`/api/calculations/monthly?month=${targetMonth}`).then((r) => r.json());
       if (monthlyRes.success) {
         setMonthlyData(monthlyRes.data);
       }
-      if (lenderSumRes.success) {
-        setLenderSummary(lenderSumRes.data);
-      }
-      if (lendersRes.success) {
-        setLendersList(lendersRes.data);
-      }
-      if (stockSumRes.success) {
-        setStockSummary(stockSumRes.data);
-      }
-      if (varietiesRes.success) {
-        setStockVarieties(varietiesRes.data);
-      }
     } catch (err) {
-      console.error('Error fetching calculation metrics:', err);
-      setError('Failed to load calculation metrics from server. Please retry.');
+      console.error('Error fetching monthly calculations:', err);
+      setError('Failed to load monthly calculations. Please retry.');
+    } finally {
+      setMonthlyLoading(false);
+    }
+  };
+
+  const loadAll = async (targetMonth) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all([loadStaticMetrics(), loadMonthlyData(targetMonth)]);
+    } catch (err) {
+      setError('Failed to load calculation metrics. Please retry.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Initial load: Fetch all calculation data
   useEffect(() => {
-    loadCalculationData(selectedMonth);
+    loadAll(selectedMonth);
+  }, []);
+
+  // When selectedMonth changes, ONLY re-fetch the month-specific calculation endpoint
+  useEffect(() => {
+    loadMonthlyData(selectedMonth);
   }, [selectedMonth]);
 
   const handleMonthChange = (e) => {
@@ -136,7 +152,7 @@ export default function CalculationsScreen() {
           </div>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => loadCalculationData(selectedMonth)}
+            onClick={() => loadAll(selectedMonth)}
             disabled={loading}
             title="Refresh Calculations"
           >
@@ -155,7 +171,7 @@ export default function CalculationsScreen() {
           </div>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => loadCalculationData(selectedMonth)}
+            onClick={() => loadAll(selectedMonth)}
           >
             Retry
           </button>
@@ -302,7 +318,7 @@ export default function CalculationsScreen() {
 
       {/* 2. MONTHLY CALCULATION */}
       <div className="section-heading">
-        <DollarSign size={18} style={{ color: 'var(--accent-purple)' }} />
+        <IndianRupee size={18} style={{ color: 'var(--accent-purple)' }} />
         <span>2. Monthly Financial Performance ({formatMonth(selectedMonth)})</span>
       </div>
 
@@ -323,7 +339,7 @@ export default function CalculationsScreen() {
         />
         <Card
           title="Monthly Turnover"
-          icon={<DollarSign size={18} />}
+          icon={<IndianRupee size={18} />}
           value={loading ? '...' : formatCurrency(monthlyData.monthly_turnover)}
           subtext="Formula: Turnover = Total Sales"
           accent="cyan"

@@ -7,7 +7,7 @@ import {
   Calendar,
   RotateCw,
   Wallet,
-  DollarSign,
+  IndianRupee,
   Edit2,
   Trash2,
   AlertTriangle,
@@ -272,7 +272,7 @@ export default function LendersScreen() {
       <div className="kpi-grid kpi-grid-3">
         <Card
           title="Total Amount Given"
-          icon={<DollarSign size={18} />}
+          icon={<IndianRupee size={18} />}
           value={loading ? '...' : formatCurrency(summary?.total_amount_given ?? 0)}
           subtext="Total principal capital disbursed"
           accent="blue"

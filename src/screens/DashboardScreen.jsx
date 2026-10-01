@@ -7,7 +7,7 @@ import {
   Boxes,
   CalendarCheck,
   CreditCard,
-  DollarSign,
+  IndianRupee,
   Wallet,
   HandCoins,
   RotateCw,
@@ -42,16 +42,16 @@ export default function DashboardScreen({ onNavigate }) {
       if (json.success && json.data) {
         const d = json.data;
         setLiveData({
-          todaySales: d.today_sales,
-          todayExpenses: d.today_expenses,
-          todayNet: d.today_net_amount,
-          currentStock: d.current_stock,
-          totalLenderDue: d.total_lender_due,
-          monthlySales: d.monthly_sales,
-          monthlyExpenses: d.monthly_expenses,
-          monthlyTurnover: d.monthly_turnover,
-          monthlyNetBalance: d.monthly_net_balance,
-          month: d.month,
+          todaySales: Number(d.today_sales ?? d.today?.today_sales ?? 0),
+          todayExpenses: Number(d.today_expenses ?? d.today?.today_expenses ?? 0),
+          todayNet: Number(d.today_net_amount ?? d.today?.today_net_amount ?? 0),
+          currentStock: Number(d.current_stock ?? d.stock?.current_stock ?? 0),
+          totalLenderDue: Number(d.total_lender_due ?? d.lender?.total_balance_due ?? 0),
+          monthlySales: Number(d.monthly_sales ?? d.monthly?.monthly_sales ?? 0),
+          monthlyExpenses: Number(d.monthly_expenses ?? d.monthly?.monthly_expenses ?? 0),
+          monthlyTurnover: Number(d.monthly_turnover ?? d.monthly?.monthly_turnover ?? 0),
+          monthlyNetBalance: Number(d.monthly_net_balance ?? d.monthly?.monthly_net_balance ?? 0),
+          month: d.month || d.monthly?.month || '',
           loading: false,
           error: null,
         });
@@ -164,7 +164,7 @@ export default function DashboardScreen({ onNavigate }) {
 
       {/* MONTHLY PERFORMANCE */}
       <div className="section-heading">
-        <DollarSign size={18} style={{ color: 'var(--accent-purple)' }} />
+        <IndianRupee size={18} style={{ color: 'var(--accent-purple)' }} />
         <span>Monthly Performance ({liveData.month ? formatMonth(liveData.month) : 'Current Month'})</span>
       </div>
 
@@ -185,7 +185,7 @@ export default function DashboardScreen({ onNavigate }) {
         />
         <Card
           title="Monthly Turnover"
-          icon={<DollarSign size={18} />}
+          icon={<IndianRupee size={18} />}
           value={liveData.loading ? '...' : formatCurrency(liveData.monthlyTurnover)}
           subtext="Formula: Turnover = Total Sales"
           accent="cyan"

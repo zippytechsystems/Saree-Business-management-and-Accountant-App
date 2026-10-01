@@ -738,7 +738,7 @@ router.get('/reports/monthly', async (req, res) => {
   try {
     const { month } = req.query;
     const targetMonth = month || calculationService.getCurrentMonthString();
-    const report = reportService.generateMonthlyReportData(targetMonth, req.userId);
+    const report = await authoritativeDataService.generateMonthlyReportDataAuthoritative(targetMonth, req.userId);
     res.json({
       success: true,
       data: report,
@@ -753,7 +753,7 @@ router.get('/reports/monthly/download', async (req, res) => {
   try {
     const { month, format } = req.query;
     const targetMonth = month || calculationService.getCurrentMonthString();
-    const reportData = reportService.generateMonthlyReportData(targetMonth, req.userId);
+    const reportData = await authoritativeDataService.generateMonthlyReportDataAuthoritative(targetMonth, req.userId);
     const fileFormat = (format || 'csv').toLowerCase();
 
     if (fileFormat === 'json') {

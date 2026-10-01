@@ -789,6 +789,27 @@ export async function getMonthlyFinancialSummaryAuthoritative(targetMonth = null
       const settledCount = lenders.length - activeCount;
 
       return {
+        date: todayDate,
+        month,
+
+        // Flat properties (expected by DashboardScreen & calculations)
+        today_sales: todaySales.total_sales_amount,
+        today_expenses: todayExpenses.today_expenses,
+        today_net_amount: netToday,
+        current_stock: stockSummary.current_stock,
+        total_stock_in: stockSummary.total_in,
+        total_stock_out: stockSummary.total_out,
+        total_lender_due: totalBalance,
+        total_amount_given: totalGiven,
+        total_amount_paid: totalPaid,
+        monthly_sales: mSales,
+        monthly_expenses: mExp,
+        monthly_turnover: mSales,
+        monthly_net_balance: netMonthly,
+        monthly_surplus: netMonthly >= 0,
+        expense_breakdown: monthlyExpenses.breakdown,
+
+        // Nested blocks
         today: {
           date: todayDate,
           today_sales: todaySales.total_sales_amount,
@@ -827,6 +848,167 @@ export async function getMonthlyFinancialSummaryAuthoritative(targetMonth = null
     }
   }
   return calculationService.getDashboardSummary({ month, userId: uid });
+}
+
+export async function generateMonthlyReportDataAuthoritative(yearMonth, userId = 1) {
+  if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
+    throw new Error('Valid month in YYYY-MM format is required.');
+  }
+  const uid = Number(userId || 1);
+
+  if (supabaseService.isSupabaseConfigured()) {
+    try {
+      const [yearStr, monthStr] = yearMonth.split('-');
+      const lastDay = new Date(Number(yearStr), Number(monthStr), 0).getDate();
+      const startDate = `${yearMonth}-01`;
+      const endDate = `${yearMonth}-${String(lastDay).padStart(2, '0')}`;
+
+      const [
+        salesHistory,
+        salesSummary,
+        expensesHistory,
+        expensesSummary,
+        stockVarieties,
+        stockMovements,
+        stockSummary,
+        lendersList,
+      ] = await Promise.all([
+        getSalesAuthoritative({ month: yearMonth, userId: uid, limit: 1000 }),
+        getMonthlyTotalSalesAuthoritative(yearMonth, uid),
+        getExpensesAuthoritative({ month: yearMonth, userId: uid, limit: 1000 }),
+        getMonthlyExpensesByCategoryAuthoritative(yearMonth, uid),
+        getProductVarietiesAuthoritative(uid),
+        getStockEntriesAuthoritative({ startDate, endDate, userId: uid, limit: 1000 }),
+        getStockSummaryAuthoritative(uid),
+        getLendersAuthoritative(uid),
+      ]);
+
+      const supplierPayments = expensesHistory.filter(
+        (e) => e.expense_type === 'Supplier payments'
+      );
+      const totalSupplierPayments = supplierPayments.reduce(
+        (acc, curr) => acc + Number(curr.amount || 0),
+        0
+      );
+
+      const totalGiven = lendersList.reduce((acc, l) => acc + Number(l.amount_given || 0), 0);
+      const totalPaid = lendersList.reduce((acc, l) => acc + Number(l.amount_paid || 0), 0);
+      const totalLenderDue = totalGiven - totalPaid;
+
+      const mSales = Number(salesSummary.monthly_sales || 0);
+      const mExpenses = Number(expensesSummary.monthly_expenses || 0);
+      const mNetBalance = mSales - mExpenses;
+
+      return {
+        report_title: `Monthly Business & Accounting Report — ${yearMonth}`,
+        month: yearMonth,
+        generated_at: new Date().toISOString(),
+
+        // Section 1: Sales
+        sales: {
+          monthly_total_sales: mSales,
+          entries_count: salesHistory.length,
+          records: salesHistory.map((s) => ({
+            date: s.entry_date,
+            daily_total_sales: Number(s.total_sales_amount || 0),
+          })),
+        },
+
+        // Section 2: Expenses
+        expenses: {
+          monthly_total_expenses: mExpenses,
+          breakdown: expensesSummary.breakdown,
+          entries_count: expensesHistory.length,
+          records: expensesHistory.map((e) => ({
+            id: e.id,
+            date: e.expense_date,
+            category: e.expense_type,
+            amount: Number(e.amount || 0),
+            description: e.description || '',
+          })),
+        },
+
+        // Section 3: Stock
+        stock: {
+          total_in: Number(stockSummary.total_in || 0),
+          total_out: Number(stockSummary.total_out || 0),
+          current_stock: Number(stockSummary.current_stock || 0),
+          varieties: stockVarieties.map((v) => ({
+            id: v.id,
+            product_variety: v.name,
+            total_in: Number(v.total_in || 0),
+            total_out: Number(v.total_out || 0),
+            current_stock: Number(v.current_stock || 0),
+          })),
+          monthly_movements: stockMovements.map((m) => ({
+            date: m.entry_date,
+            product_variety: m.product_name || m.product_variety || '',
+            movement_type: m.movement_type,
+            quantity: Number(m.quantity || 0),
+            notes: m.notes || '',
+          })),
+        },
+
+        // Section 4: Supplier Payments
+        supplier_payments: {
+          monthly_supplier_payment_total: totalSupplierPayments,
+          count: supplierPayments.length,
+          records: supplierPayments.map((p) => ({
+            date: p.expense_date,
+            supplier_description: p.description || 'Supplier payment',
+            amount: Number(p.amount || 0),
+          })),
+        },
+
+        // Section 5: Lenders
+        lenders: {
+          total_amount_given: totalGiven,
+          total_amount_paid: totalPaid,
+          total_lender_due: totalLenderDue,
+          summary: {
+            total_amount_given: totalGiven,
+            total_amount_paid: totalPaid,
+            total_lender_due: totalLenderDue,
+            active_lenders_count: lendersList.filter((l) => Number(l.amount_given || 0) - Number(l.amount_paid || 0) > 0).length,
+          },
+          active_lenders_count: lendersList.filter((l) => Number(l.amount_given || 0) - Number(l.amount_paid || 0) > 0).length,
+          records: lendersList.map((l) => {
+            const given = Number(l.amount_given || 0);
+            const paid = Number(l.amount_paid || 0);
+            const balance = given - paid;
+            return {
+              id: l.id,
+              name: l.name,
+              mobile: l.mobile,
+              place: l.place,
+              amount_given: given,
+              amount_paid: paid,
+              remaining_due: balance,
+              balance,
+            };
+          }),
+        },
+
+        // Section 6: Calculations
+        calculations: {
+          monthly_sales: mSales,
+          monthly_total_sales: mSales,
+          monthly_expenses: mExpenses,
+          monthly_total_expenses: mExpenses,
+          monthly_turnover: mSales,
+          monthly_net_balance: mNetBalance,
+          total_lender_due: totalLenderDue,
+          current_stock: Number(stockSummary.current_stock || 0),
+          is_surplus: mNetBalance >= 0,
+        },
+        provider: 'supabase',
+      };
+    } catch (err) {
+      console.warn('[Authoritative] Cloud report generation failed, falling back to SQLite cache:', err.message);
+    }
+  }
+
+  return reportService.generateMonthlyReportData(yearMonth, uid);
 }
 
 // ============================================================================

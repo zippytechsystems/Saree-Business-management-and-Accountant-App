@@ -1,21 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 
-// Auth & Setup Screens
-import AuthScreen from './screens/AuthScreen';
-import BusinessProfileScreen from './screens/BusinessProfileScreen';
+// Lazy-loaded Auth & Setup Screens
+const AuthScreen = lazy(() => import('./screens/AuthScreen'));
+const BusinessProfileScreen = lazy(() => import('./screens/BusinessProfileScreen'));
 
-// Core Business Screens
-import DashboardScreen from './screens/DashboardScreen';
-import StockScreen from './screens/StockScreen';
-import TodaySalesScreen from './screens/TodaySalesScreen';
-import ExpensesScreen from './screens/ExpensesScreen';
-import AccountantScreen from './screens/AccountantScreen';
-import LendersScreen from './screens/LendersScreen';
-import CalculationsScreen from './screens/CalculationsScreen';
-import ReportsScreen from './screens/ReportsScreen';
-import SettingsScreen from './screens/SettingsScreen';
+// Lazy-loaded Core Business Screens (split into dedicated on-demand chunks)
+const DashboardScreen = lazy(() => import('./screens/DashboardScreen'));
+const StockScreen = lazy(() => import('./screens/StockScreen'));
+const TodaySalesScreen = lazy(() => import('./screens/TodaySalesScreen'));
+const ExpensesScreen = lazy(() => import('./screens/ExpensesScreen'));
+const AccountantScreen = lazy(() => import('./screens/AccountantScreen'));
+const LendersScreen = lazy(() => import('./screens/LendersScreen'));
+const CalculationsScreen = lazy(() => import('./screens/CalculationsScreen'));
+const ReportsScreen = lazy(() => import('./screens/ReportsScreen'));
+const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
+
+function ScreenSkeleton() {
+  return (
+    <div className="screen-skeleton-container" aria-busy="true" aria-label="Loading screen">
+      <div className="skeleton-line skeleton-title" />
+      <div className="skeleton-line skeleton-subtitle" />
+      <div className="kpi-grid kpi-grid-3" style={{ marginTop: '24px' }}>
+        <div className="ui-card skeleton-card">
+          <div className="skeleton-line skeleton-label" />
+          <div className="skeleton-line skeleton-value" />
+        </div>
+        <div className="ui-card skeleton-card">
+          <div className="skeleton-line skeleton-label" />
+          <div className="skeleton-line skeleton-value" />
+        </div>
+        <div className="ui-card skeleton-card">
+          <div className="skeleton-line skeleton-label" />
+          <div className="skeleton-line skeleton-value" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -128,6 +151,22 @@ export default function App() {
     }));
   };
 
+  // Prefetch frequent operational screens when browser is idle to ensure instant tab switches
+  useEffect(() => {
+    if (authState.isAuthenticated) {
+      const prefetch = () => {
+        import('./screens/TodaySalesScreen');
+        import('./screens/ExpensesScreen');
+        import('./screens/StockScreen');
+      };
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(prefetch);
+      } else {
+        setTimeout(prefetch, 1200);
+      }
+    }
+  }, [authState.isAuthenticated]);
+
   // 1. Session Loading Splash
   if (authState.loading) {
     return (
@@ -142,7 +181,9 @@ export default function App() {
   if (!authState.isAuthenticated) {
     return (
       <ErrorBoundary>
-        <AuthScreen onAuthSuccess={handleAuthSuccess} />
+        <Suspense fallback={<ScreenSkeleton />}>
+          <AuthScreen onAuthSuccess={handleAuthSuccess} />
+        </Suspense>
       </ErrorBoundary>
     );
   }
@@ -151,10 +192,12 @@ export default function App() {
   if (authState.needsProfile) {
     return (
       <ErrorBoundary>
-        <BusinessProfileScreen
-          onProfileComplete={handleProfileComplete}
-          initialProfile={authState.businessProfile}
-        />
+        <Suspense fallback={<ScreenSkeleton />}>
+          <BusinessProfileScreen
+            onProfileComplete={handleProfileComplete}
+            initialProfile={authState.businessProfile}
+          />
+        </Suspense>
       </ErrorBoundary>
     );
   }
@@ -201,7 +244,9 @@ export default function App() {
         user={authState.user}
         onLogout={handleLogout}
       >
-        {renderActiveScreen()}
+        <Suspense fallback={<ScreenSkeleton />}>
+          {renderActiveScreen()}
+        </Suspense>
       </Layout>
     </ErrorBoundary>
   );

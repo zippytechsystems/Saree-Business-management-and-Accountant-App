@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-export default function Card({ title, icon, value, subtext, accent = 'blue', children, className = '' }) {
+function CardComponent({ title, icon, value, subtext, accent = 'blue', children, className = '' }) {
+  const isLoading = value === '...' || value === 'loading';
+
   return (
     <div className={`ui-card ${className}`}>
       {title && (
@@ -9,9 +11,16 @@ export default function Card({ title, icon, value, subtext, accent = 'blue', chi
           {icon && <div className={`card-icon icon-${accent}`}>{icon}</div>}
         </div>
       )}
-      {value !== undefined && <div className="card-value">{value}</div>}
+      {value !== undefined && (
+        <div className="card-value">
+          {isLoading ? <span className="skeleton-placeholder" aria-hidden="true" /> : value}
+        </div>
+      )}
       {subtext && <div className="card-subtext">{subtext}</div>}
       {children}
     </div>
   );
 }
+
+export default memo(CardComponent);
+
