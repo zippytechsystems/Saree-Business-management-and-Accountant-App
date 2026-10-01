@@ -6,6 +6,7 @@ import cors from 'cors';
 import { initDatabase } from './db/database.js';
 import apiRoutes from './routes/api.js';
 import * as cloudBackupService from './services/cloudBackupService.js';
+import * as supabaseService from './services/supabaseService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,16 +95,38 @@ app.use((err, req, res, next) => {
 });
 
 if (process.env.VERCEL !== '1') {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`[Server] Backend service running on http://localhost:${PORT}`);
 
-    // Background retry of pending cloud sync jobs on startup if cloud credentials configured
-    const cloudConfig = cloudBackupService.getCloudConfig();
-    if (cloudConfig.isConfigured) {
-      console.log(`[CloudBackup] Auto-flushing pending sync queue for ${cloudConfig.provider}...`);
-      cloudBackupService.retryPendingSyncs().catch((err) => {
-        console.error('[CloudBackup] Startup sync flush error:', err.message);
-      });
+    // Verify Authoritative Supabase Cloud Connection
+    const isSupabase = supabaseService.isSupabaseConfigured();
+    if (isSupabase) {
+      console.log('[Database] Checking Authoritative Supabase Cloud connection...');
+      try {
+        const cloudConn = await supabaseService.testSupabaseConnection();
+        if (cloudConn.connected) {
+          console.log(`[Database] ✓ Authoritative Supabase connected: ${cloudConn.url}`);
+          console.log('[Database] Database Mode: authoritative_supabase (Primary: Cloud PostgreSQL, Cache: Local SQLite)');
+
+          // Background retry of pending cloud sync jobs
+          cloudBackupService.retryPendingSyncs().catch((err) => {
+            console.error('[CloudBackup] Startup sync flush error:', err.message);
+          });
+        } else {
+          console.error('[Database] ❌ Supabase credentials configured but connection check failed:', cloudConn.error || cloudConn.reason);
+          console.warn('[Database] WARNING: Falling back to local SQLite cache (/app/data/app.db).');
+        }
+      } catch (err) {
+        console.error('[Database] Exception during Supabase connection check:', err.message);
+      }
+    } else {
+      console.warn('================================================================');
+      console.warn('[Database] ⚠️  SUPABASE NOT CONFIGURED: Running in local_sqlite_fallback mode!');
+      console.warn('[Database] To enable Authoritative Supabase, add these variables in Railway:');
+      console.warn('[Database]   1. SUPABASE_URL');
+      console.warn('[Database]   2. SUPABASE_SERVICE_ROLE_KEY');
+      console.warn('[Database]   3. CLOUD_BACKUP_PROVIDER=supabase');
+      console.warn('================================================================');
     }
   });
 }

@@ -200,8 +200,12 @@ async function runMigration() {
   }
 }
 
-runMigration().catch((err) => {
-  try { db.close(); } catch (e) {}
-  console.error('\nFATAL ERROR DURING MIGRATION:', err.message);
-  process.exitCode = 1;
-});
+export { runMigration };
+
+if (process.argv[1] && process.argv[1].endsWith('migrate_sqlite_to_supabase.js')) {
+  runMigration().catch((err) => {
+    try { db.close(); } catch (e) {}
+    console.error('\nFATAL ERROR DURING MIGRATION:', err.message);
+    process.exitCode = 1;
+  });
+}

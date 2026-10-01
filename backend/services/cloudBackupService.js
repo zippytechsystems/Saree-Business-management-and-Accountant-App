@@ -52,12 +52,15 @@ export function getCloudConfig() {
   const provider = (process.env.CLOUD_BACKUP_PROVIDER || '').toLowerCase();
 
   // Supabase
-  if (provider === 'supabase' || (process.env.SUPABASE_URL && process.env.SUPABASE_KEY)) {
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '').trim();
+  const supabaseUrl = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+
+  if (provider === 'supabase' || (supabaseUrl && supabaseKey)) {
     return {
       provider: 'supabase',
-      url: process.env.SUPABASE_URL,
-      key: process.env.SUPABASE_KEY,
-      isConfigured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_KEY),
+      url: supabaseUrl,
+      key: supabaseKey,
+      isConfigured: Boolean(supabaseUrl && supabaseKey),
     };
   }
 
