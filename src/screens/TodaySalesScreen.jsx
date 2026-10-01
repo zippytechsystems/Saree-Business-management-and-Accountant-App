@@ -127,8 +127,9 @@ export default function TodaySalesScreen() {
       <div
         className="ui-card"
         style={{
-          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(30, 41, 59, 0.95))',
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 60%, #eff6ff 100%)',
           borderColor: 'rgba(16, 185, 129, 0.3)',
+          boxShadow: '0 4px 20px -2px rgba(16, 185, 129, 0.12)',
           marginBottom: '24px',
           textAlign: 'center',
           padding: '28px 20px',
@@ -141,7 +142,7 @@ export default function TodaySalesScreen() {
           style={{
             fontSize: '2.5rem',
             fontWeight: 800,
-            color: '#34d399',
+            color: '#059669',
             margin: '8px 0',
             fontFamily: 'inherit',
           }}

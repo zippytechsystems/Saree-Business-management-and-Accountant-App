@@ -552,7 +552,7 @@ export default function LendersScreen() {
         <form onSubmit={handleRecordRepayment}>
           <div
             style={{
-              background: 'rgba(15, 23, 42, 0.6)',
+              background: '#f8fafc',
               border: '1px solid var(--border-color)',
               borderRadius: '8px',
               padding: '14px',
@@ -565,7 +565,7 @@ export default function LendersScreen() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Amount Already Paid:</span>
-              <strong style={{ color: '#34d399' }}>{formatCurrency(payingLender?.amount_paid)}</strong>
+              <strong style={{ color: '#059669' }}>{formatCurrency(payingLender?.amount_paid)}</strong>
             </div>
             <div
               style={{
@@ -578,7 +578,7 @@ export default function LendersScreen() {
               }}
             >
               <span style={{ fontWeight: 600 }}>Current Remaining Balance:</span>
-              <strong style={{ color: '#fbbf24', fontSize: '1.1rem' }}>
+              <strong style={{ color: '#d97706', fontSize: '1.1rem' }}>
                 {formatCurrency(payingLender?.balance)}
               </strong>
             </div>

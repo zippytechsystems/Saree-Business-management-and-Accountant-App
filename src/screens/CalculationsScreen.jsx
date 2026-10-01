@@ -411,11 +411,11 @@ export default function CalculationsScreen() {
             })}
           </tbody>
           <tfoot>
-            <tr style={{ background: 'rgba(15, 23, 42, 0.85)', fontWeight: 700 }}>
+            <tr style={{ background: '#f1f5f9', fontWeight: 700 }}>
               <td style={{ color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Total Monthly Expenses
               </td>
-              <td style={{ textAlign: 'right', color: '#fb7185', fontSize: '1rem' }}>
+              <td style={{ textAlign: 'right', color: '#e11d48', fontSize: '1rem' }}>
                 {formatCurrency(monthlyData.monthly_expenses)}
               </td>
               <td style={{ textAlign: 'right', color: 'var(--text-primary)' }}>100.0%</td>
@@ -614,13 +614,13 @@ export default function CalculationsScreen() {
             )}
           </tbody>
           <tfoot>
-            <tr style={{ background: 'rgba(15, 23, 42, 0.85)', fontWeight: 700 }}>
+            <tr style={{ background: '#f1f5f9', fontWeight: 700 }}>
               <td style={{ color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 All Varieties Combined ({stockSummary.total_varieties} varieties)
               </td>
-              <td style={{ textAlign: 'right', color: '#34d399' }}>+{stockSummary.total_in}</td>
-              <td style={{ textAlign: 'right', color: '#fbbf24' }}>-{stockSummary.total_out}</td>
-              <td style={{ textAlign: 'right', color: '#22d3ee', fontSize: '1rem' }}>
+              <td style={{ textAlign: 'right', color: '#059669' }}>+{stockSummary.total_in}</td>
+              <td style={{ textAlign: 'right', color: '#d97706' }}>-{stockSummary.total_out}</td>
+              <td style={{ textAlign: 'right', color: '#2563eb', fontSize: '1rem' }}>
                 {stockSummary.current_stock} units
               </td>
               <td style={{ textAlign: 'center' }}>
