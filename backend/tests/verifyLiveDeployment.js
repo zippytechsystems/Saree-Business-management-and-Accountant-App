@@ -1,22 +1,24 @@
 /**
  * LIVE DEPLOYMENT VERIFICATION SUITE
- * Tests the live deployed Render Backend, Vercel Frontend, and Supabase integration.
+ * Tests the live deployed Railway Backend, Netlify Frontend, and Supabase integration.
  *
  * Usage:
- *   node backend/tests/verifyLiveDeployment.js <RENDER_BACKEND_URL> <VERCEL_FRONTEND_URL>
- * Example:
- *   node backend/tests/verifyLiveDeployment.js https://saree-business-backend.onrender.com https://saree-business-app.vercel.app
+ *   node backend/tests/verifyLiveDeployment.js [RAILWAY_BACKEND_URL] [NETLIFY_FRONTEND_URL]
+ * Default:
+ *   node backend/tests/verifyLiveDeployment.js
  */
 
-const backendUrl = (process.argv[2] || process.env.RENDER_URL || '').replace(/\/+$/, '');
-const frontendUrl = (process.argv[3] || process.env.VERCEL_URL || '').replace(/\/+$/, '');
+const backendUrl = (
+  process.argv[2] ||
+  process.env.RAILWAY_URL ||
+  'https://saree-business-backend-production-b59f.up.railway.app'
+).replace(/\/+$/, '');
 
-if (!backendUrl || !frontendUrl) {
-  console.error('\n❌ ERROR: Missing target deployment URLs!');
-  console.error('Usage: node backend/tests/verifyLiveDeployment.js <RENDER_BACKEND_URL> <VERCEL_FRONTEND_URL>');
-  console.error('Example: node backend/tests/verifyLiveDeployment.js https://my-backend.onrender.com https://my-frontend.vercel.app\n');
-  process.exit(1);
-}
+const frontendUrl = (
+  process.argv[3] ||
+  process.env.NETLIFY_URL ||
+  'https://businessaccountantapp.netlify.app'
+).replace(/\/+$/, '');
 
 let passed = 0;
 let failed = 0;
@@ -40,15 +42,15 @@ async function runLiveVerification() {
   console.log(`Frontend Target: ${frontendUrl}\n`);
 
   // --- Step 1: Frontend CDN & SPA Delivery ---
-  console.log('--- 1. Testing Vercel Frontend Delivery ---');
+  console.log('--- 1. Testing Netlify Frontend Delivery ---');
   const feRes = await fetch(frontendUrl);
   assert(feRes.status === 200, `Frontend root returns HTTP 200 (Status: ${feRes.status})`);
   const feHtml = await feRes.text();
   assert(feHtml.includes('id="root"'), 'Frontend HTML serves React mounting root element');
   assert(feHtml.includes('<script type="module"'), 'Frontend loads optimized Vite JavaScript bundle');
 
-  // --- Step 2: Render Backend Health & Supabase Connectivity ---
-  console.log('\n--- 2. Testing Render Backend Health & Supabase Cloud Status ---');
+  // --- Step 2: Railway Backend Health & Supabase Connectivity ---
+  console.log('\n--- 2. Testing Railway Backend Health & Supabase Cloud Status ---');
   const healthRes = await fetch(`${backendUrl}/api/health`);
   assert(healthRes.status === 200, `Health check responds HTTP 200 (Status: ${healthRes.status})`);
   const healthJson = await healthRes.json();
@@ -200,7 +202,7 @@ async function runLiveVerification() {
 
   console.log('\n================================================================');
   console.log(`✅ LIVE VERIFICATION COMPLETED: ${passed} PASSED / 0 FAILED`);
-  console.log('   Vercel Frontend <-> Render Backend <-> Supabase Cloud');
+  console.log('   Netlify Frontend <-> Railway Backend <-> Supabase Cloud');
   console.log('   Full End-to-End Production Pipeline is 100% OPERATIONAL!');
   console.log('================================================================\n');
 }
