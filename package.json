@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "client": "vite",
-    "server": "node backend/server.js",
-    "start": "node backend/server.js",
+    "server": "node --no-warnings=ExperimentalWarning backend/server.js",
+    "start": "node --no-warnings=ExperimentalWarning backend/server.js",
     "build": "vite build",
     "preview": "vite preview",
     "migrate:supabase": "node backend/scripts/migrate_sqlite_to_supabase.js"

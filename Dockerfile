@@ -13,5 +13,5 @@ RUN mkdir -p data
 
 EXPOSE 5000
 
-CMD ["node", "backend/server.js"]
+CMD ["node", "--no-warnings=ExperimentalWarning", "backend/server.js"]
 

@@ -40,14 +40,20 @@ async function supabaseRequest(endpoint, options = {}, retries = 2) {
     Authorization: `Bearer ${config.key}`,
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    Connection: 'keep-alive',
     ...(options.headers || {}),
   };
+
+  const timeoutMs = options.timeoutMs || 15000;
+  const signal = options.signal || (AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined);
 
   try {
     const response = await fetch(url, {
       method: options.method || 'GET',
       headers,
       body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
+      signal,
+      keepalive: true,
     });
 
     if (!response.ok) {
@@ -66,8 +72,15 @@ async function supabaseRequest(endpoint, options = {}, retries = 2) {
     const text = await response.text();
     return text ? JSON.parse(text) : null;
   } catch (err) {
-    if (retries > 0 && (err.name === 'TypeError' || err.code === 'ECONNRESET' || err.cause?.code === 'ECONNRESET')) {
-      await new Promise((r) => setTimeout(r, 400));
+    const isNetworkTransient =
+      err.name === 'TypeError' ||
+      err.code === 'ECONNRESET' ||
+      err.cause?.code === 'ECONNRESET' ||
+      err.name === 'TimeoutError';
+
+    if (retries > 0 && isNetworkTransient) {
+      const backoffDelay = (3 - retries) * 500;
+      await new Promise((r) => setTimeout(r, backoffDelay));
       return supabaseRequest(endpoint, options, retries - 1);
     }
     throw err;

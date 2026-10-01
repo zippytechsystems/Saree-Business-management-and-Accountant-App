@@ -3,6 +3,25 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
+
+// Suppress experimental node warnings (e.g. built-in SQLite)
+process.removeAllListeners('warning');
+process.on('warning', (warning) => {
+  if (warning.name === 'ExperimentalWarning' && /sqlite/i.test(warning.message)) {
+    return;
+  }
+  process.stderr.write(`[runtime-warning] ${warning.name}: ${warning.message}\n`);
+});
+
+// Crash resilience handlers
+process.on('unhandledRejection', (reason) => {
+  process.stderr.write(`[fatal-unhandled-rejection] ${reason?.stack || reason}\n`);
+});
+process.on('uncaughtException', (err) => {
+  process.stderr.write(`[fatal-uncaught-exception] ${err.stack || err}\n`);
+  process.exit(1);
+});
+
 import { initDatabase } from './db/database.js';
 import apiRoutes from './routes/api.js';
 import * as cloudBackupService from './services/cloudBackupService.js';
