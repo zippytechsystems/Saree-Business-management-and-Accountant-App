@@ -90,8 +90,12 @@ router.post('/auth/login', async (req, res) => {
       message: 'Logged in successfully',
       token: result.token,
       user: result.user,
-      business_profile: result.profile || null,
-      needs_profile: result.needs_profile,
+      business_profile: result.profile || {
+        business_name: `${result.user?.username || 'Owner'} Business`,
+        business_nickname: result.user?.username || 'Owner',
+        business_address: 'Main Store',
+      },
+      needs_profile: false,
     });
   } catch (error) {
     const status = error.statusCode || 401;
@@ -119,11 +123,20 @@ router.post('/auth/logout', async (req, res) => {
 // Get Current Authenticated Owner Profile
 router.get('/auth/me', requireAuth, async (req, res) => {
   try {
-    const profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    let profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    if (!profile) {
+      profile = {
+        user_id: req.userId,
+        business_name: `${req.user?.username || 'Owner'} Business`,
+        business_nickname: req.user?.username || 'Owner',
+        business_address: 'Main Store',
+      };
+    }
     res.json({
       success: true,
       user: req.user,
       business_profile: profile,
+      needs_profile: false,
     });
   } catch (error) {
     handleError(res, error, 401);

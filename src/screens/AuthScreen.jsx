@@ -70,7 +70,10 @@ export default function AuthScreen({ onAuthSuccess }) {
       }
 
       if (onAuthSuccess) {
-        onAuthSuccess(data);
+        onAuthSuccess({
+          ...data,
+          is_signup: isSignUp,
+        });
       }
     } catch (err) {
       setError(err.message || 'An unexpected error occurred.');

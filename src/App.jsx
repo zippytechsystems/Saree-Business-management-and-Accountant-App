@@ -71,15 +71,18 @@ export default function App() {
 
       if (res.ok) {
         const data = await res.json();
-        const profile = data.business_profile;
-        const needsSetup = !profile || !profile.business_name;
+        const profile = data.business_profile || {
+          business_name: `${data.user?.username || 'Owner'} Business`,
+          business_nickname: data.user?.username || 'Owner',
+          business_address: 'Main Store',
+        };
 
         setAuthState({
           loading: false,
           isAuthenticated: true,
           user: data.user,
           businessProfile: profile,
-          needsProfile: needsSetup,
+          needsProfile: false, // Never block existing session with business profile setup
         });
       } else {
         // Invalid or expired token
@@ -99,7 +102,7 @@ export default function App() {
         loading: false,
         isAuthenticated: true,
         user: { id: 1, username: 'owner' },
-        businessProfile: null,
+        businessProfile: { business_name: 'Owner Business', business_nickname: 'Owner', business_address: 'Main Store' },
         needsProfile: false,
       });
     }
@@ -110,15 +113,22 @@ export default function App() {
   }, []);
 
   const handleAuthSuccess = (data) => {
-    const profile = data.business_profile;
-    const needsSetup = Boolean(data.needs_profile || !profile || !profile.business_name);
+    const profile = data.business_profile || {
+      business_name: `${data.user?.username || 'Owner'} Business`,
+      business_nickname: data.user?.username || 'Owner',
+      business_address: 'Main Store',
+    };
+
+    // When logging in, never ask for business details - go DIRECTLY to dashboard!
+    // Only on brand-new initial signup without any profile, allow setup
+    const isNewSignUp = Boolean(data.is_signup && data.needs_profile);
 
     setAuthState({
       loading: false,
       isAuthenticated: true,
       user: data.user,
       businessProfile: profile,
-      needsProfile: needsSetup,
+      needsProfile: isNewSignUp,
     });
     setActiveTab('dashboard');
   };

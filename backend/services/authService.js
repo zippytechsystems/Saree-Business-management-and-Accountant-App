@@ -209,7 +209,17 @@ export function loginUser({ username, password, ip = '127.0.0.1' }) {
   const user = { id: Number(userRow.id), username: userRow.username };
 
   // Check profile
-  const profile = getBusinessProfile(user.id);
+  let profile = getBusinessProfile(user.id);
+  if (!profile) {
+    try {
+      saveBusinessProfile(user.id, {
+        business_name: `${user.username} Business`,
+        business_address: 'Main Store',
+        business_nickname: user.username,
+      });
+      profile = getBusinessProfile(user.id);
+    } catch (pe) {}
+  }
 
   // Generate and store session token
   const token = generateToken(user);
@@ -224,7 +234,7 @@ export function loginUser({ username, password, ip = '127.0.0.1' }) {
   return {
     user,
     token,
-    needs_profile: !profile,
+    needs_profile: false,
     profile: profile || null,
   };
 }

@@ -1075,7 +1075,16 @@ export async function loginUserAuthoritative({ username, password, clientIp }) {
         const token = authService.generateToken(user);
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         await supabaseService.createCloudSession(user.id, token, expiresAt);
-        const profile = await supabaseService.fetchCloudBusinessProfile(user.id);
+        let profile = await supabaseService.fetchCloudBusinessProfile(user.id);
+        if (!profile) {
+          try {
+            profile = await supabaseService.upsertCloudBusinessProfile(user.id, {
+              business_name: `${cloudUser.username} Business`,
+              business_address: 'Main Store',
+              business_nickname: cloudUser.username,
+            });
+          } catch (pe) {}
+        }
 
         // Mirror to local cache
         try {
@@ -1089,12 +1098,19 @@ export async function loginUserAuthoritative({ username, password, clientIp }) {
             token,
             expiresAt
           );
+          if (profile) {
+            authService.saveBusinessProfile(user.id, {
+              business_name: profile.business_name,
+              business_address: profile.business_address,
+              business_nickname: profile.business_nickname,
+            });
+          }
         } catch (e) {}
 
         return {
           user,
           token,
-          needs_profile: !profile,
+          needs_profile: false,
           profile: profile || null,
         };
       }
