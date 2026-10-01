@@ -75,20 +75,34 @@ export default function ReportsScreen() {
     fetchMonthlyReport(selectedMonth);
   }, [selectedMonth]);
 
-  const handleDownload = (format = 'csv') => {
+  const handleDownload = async (format = 'csv') => {
     setDownloading(true);
+    setError(null);
     try {
-      const downloadUrl = `/api/reports/monthly/download?month=${selectedMonth}&format=${format}`;
+      const res = await fetch(`/api/reports/monthly/download?month=${selectedMonth}&format=${format}`);
+      if (!res.ok) {
+        let errMsg = `Failed to download report (HTTP ${res.status})`;
+        try {
+          const errJson = await res.json();
+          if (errJson && errJson.error) errMsg = errJson.error;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
+
+      const blob = await res.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = objectUrl;
       link.setAttribute('download', `monthly_business_report_${selectedMonth}.${format}`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
     } catch (err) {
       console.error('Download error:', err);
+      setError(err.message || 'Failed to download report.');
     } finally {
-      setTimeout(() => setDownloading(false), 1000);
+      setDownloading(false);
     }
   };
 
