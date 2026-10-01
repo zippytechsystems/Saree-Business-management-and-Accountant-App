@@ -47,12 +47,13 @@ const corsMiddleware = cors({
     const cleanOrigin = origin.replace(/\/+$/, '');
 
     if (
-      allowedOrigins === '*' ||
-      (Array.isArray(allowedOrigins) && (allowedOrigins.includes('*') || allowedOrigins.includes(cleanOrigin))) ||
+      cleanOrigin === 'https://businessaccountantapp.netlify.app' ||
       cleanOrigin.endsWith('.netlify.app') ||
       cleanOrigin.endsWith('.vercel.app') ||
       cleanOrigin.startsWith('http://localhost:') ||
-      cleanOrigin.startsWith('http://127.0.0.1:')
+      cleanOrigin.startsWith('http://127.0.0.1:') ||
+      allowedOrigins === '*' ||
+      (Array.isArray(allowedOrigins) && (allowedOrigins.includes('*') || allowedOrigins.includes(cleanOrigin)))
     ) {
       return callback(null, origin);
     }

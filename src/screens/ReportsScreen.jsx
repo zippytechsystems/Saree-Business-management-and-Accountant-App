@@ -75,22 +75,102 @@ export default function ReportsScreen() {
     fetchMonthlyReport(selectedMonth);
   }, [selectedMonth]);
 
+  const generateClientCsv = (data) => {
+    if (!data) return '';
+    const lines = [];
+    lines.push(`MONTHLY BUSINESS REPORT - ${data.month || selectedMonth}`);
+    lines.push(`Generated: ${data.generated_at || new Date().toISOString()}`);
+    lines.push('');
+    lines.push('=== EXECUTIVE SUMMARY & CALCULATIONS ===');
+    lines.push('Metric,Amount (INR)');
+    lines.push(`Monthly Total Sales,${data.calculations?.monthly_sales ?? 0}`);
+    lines.push(`Monthly Total Expenses,${data.calculations?.monthly_expenses ?? 0}`);
+    lines.push(`Monthly Turnover,${data.calculations?.monthly_turnover ?? 0}`);
+    lines.push(`Monthly Net Balance,${data.calculations?.monthly_net_balance ?? 0}`);
+    lines.push(`Total Lender Due,${data.calculations?.total_lender_due ?? 0}`);
+    lines.push(`Current Stock (units),${data.calculations?.current_stock ?? 0}`);
+    lines.push('');
+    lines.push('=== SALES LEDGER ===');
+    lines.push('Date,Daily Total Sales (INR)');
+    (data.sales?.records || []).forEach((s) => {
+      lines.push(`${s.date},${s.daily_total_sales}`);
+    });
+    lines.push(`Total Sales,${data.sales?.monthly_total_sales ?? 0}`);
+    lines.push('');
+    lines.push('=== EXPENSES LEDGER ===');
+    lines.push('Date,Expense Category,Amount (INR),Description');
+    (data.expenses?.records || []).forEach((e) => {
+      const cleanDesc = `"${(e.description || '').replace(/"/g, '""')}"`;
+      lines.push(`${e.date},${e.category},${e.amount},${cleanDesc}`);
+    });
+    lines.push(`Total Expenses,,${data.expenses?.monthly_total_expenses ?? 0},`);
+    lines.push('');
+    lines.push('=== SUPPLIER PAYMENTS ===');
+    lines.push('Date,Description,Amount (INR)');
+    (data.supplier_payments?.records || []).forEach((p) => {
+      const cleanDesc = `"${(p.supplier_description || '').replace(/"/g, '""')}"`;
+      lines.push(`${p.date},${cleanDesc},${p.amount}`);
+    });
+    lines.push(`Total Supplier Payments,,${data.supplier_payments?.monthly_supplier_payment_total ?? 0}`);
+    lines.push('');
+    lines.push('=== STOCK CATALOG & CURRENT INVENTORY ===');
+    lines.push('Product Variety,Total IN,Total OUT,Current Stock');
+    (data.stock?.varieties || []).forEach((v) => {
+      lines.push(`"${v.product_variety}",${v.total_in},${v.total_out},${v.current_stock}`);
+    });
+    lines.push(`Overall Stock,, ,${data.stock?.current_stock ?? 0}`);
+    lines.push('');
+    lines.push('=== LENDER ACCOUNTS & CREDIT DUES ===');
+    lines.push('Lender Name,Mobile,Place,Amount Given (INR),Amount Paid (INR),Balance Due (INR)');
+    (data.lenders?.records || []).forEach((l) => {
+      lines.push(`"${l.name}",${l.mobile},"${l.place}",${l.amount_given},${l.amount_paid},${l.balance}`);
+    });
+    lines.push(`Total Dues,,,${data.lenders?.total_amount_given ?? 0},${data.lenders?.total_amount_paid ?? 0},${data.lenders?.total_lender_due ?? 0}`);
+    return lines.join('\n');
+  };
+
   const handleDownload = async (format = 'csv') => {
     setDownloading(true);
     setError(null);
     try {
       const res = await fetch(`/api/reports/monthly/download?month=${selectedMonth}&format=${format}`);
-      if (!res.ok) {
-        let errMsg = `Failed to download report (HTTP ${res.status})`;
-        try {
-          const errJson = await res.json();
-          if (errJson && errJson.error) errMsg = errJson.error;
-        } catch (_) {}
-        throw new Error(errMsg);
+      const contentType = res.headers.get('content-type') || '';
+      let downloadBlob = null;
+      let isHtmlFallback = !res.ok || contentType.includes('text/html');
+
+      if (!isHtmlFallback) {
+        const text = await res.text();
+        if (
+          text.trim().startsWith('<!DOCTYPE html>') ||
+          text.trim().startsWith('<!doctype html>') ||
+          text.trim().startsWith('<html') ||
+          text.includes('<div id="root">')
+        ) {
+          isHtmlFallback = true;
+        } else {
+          downloadBlob = new Blob([text], {
+            type: format === 'json' ? 'application/json' : 'text/csv; charset=utf-8',
+          });
+        }
       }
 
-      const blob = await res.blob();
-      const objectUrl = window.URL.createObjectURL(blob);
+      if (isHtmlFallback) {
+        if (!reportData) {
+          throw new Error('Report data is still loading. Please wait a moment and try again.');
+        }
+        if (format === 'json') {
+          downloadBlob = new Blob([JSON.stringify(reportData, null, 2)], {
+            type: 'application/json',
+          });
+        } else {
+          const clientCsv = generateClientCsv(reportData);
+          downloadBlob = new Blob([clientCsv], {
+            type: 'text/csv; charset=utf-8',
+          });
+        }
+      }
+
+      const objectUrl = window.URL.createObjectURL(downloadBlob);
       const link = document.createElement('a');
       link.href = objectUrl;
       link.setAttribute('download', `monthly_business_report_${selectedMonth}.${format}`);

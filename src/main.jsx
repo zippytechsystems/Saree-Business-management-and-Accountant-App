@@ -3,9 +3,13 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
 
+const RAILWAY_PRODUCTION_BACKEND = 'https://saree-business-backend-production-b59f.up.railway.app';
+
 const API_BASE = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/+$/, '')
-  : '';
+  : (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app')
+      ? RAILWAY_PRODUCTION_BACKEND
+      : '');
 
 // Automatically prepend backend URL (if configured) and attach Bearer token to all /api/ requests
 const nativeFetch = window.fetch;
