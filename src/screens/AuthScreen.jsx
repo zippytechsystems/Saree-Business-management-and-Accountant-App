@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Store,
   Lock,
@@ -9,6 +9,8 @@ import {
   PiggyBank,
   BookX,
   Sparkles,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export default function AuthScreen({ onAuthSuccess }) {
@@ -16,8 +18,50 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [unlocked, setUnlocked] = useState(false);
+
+  // Aggressively prevent browser autofill on page load so credentials are NEVER exposed to others
+  useEffect(() => {
+    setUsername('');
+    setPassword('');
+    setConfirmPassword('');
+
+    const clearNativeInputs = () => {
+      if (!unlocked) {
+        const u = document.getElementById('secret_shop_user_field');
+        const p = document.getElementById('secret_shop_pass_field');
+        const cp = document.getElementById('secret_shop_confirm_pass_field');
+        if (u && u.value) {
+          u.value = '';
+          setUsername('');
+        }
+        if (p && p.value) {
+          p.value = '';
+          setPassword('');
+        }
+        if (cp && cp.value) {
+          cp.value = '';
+          setConfirmPassword('');
+        }
+      }
+    };
+
+    clearNativeInputs();
+    const t1 = setTimeout(clearNativeInputs, 50);
+    const t2 = setTimeout(clearNativeInputs, 150);
+    const t3 = setTimeout(clearNativeInputs, 350);
+    const t4 = setTimeout(clearNativeInputs, 700);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [isSignUp, unlocked]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -140,16 +184,52 @@ export default function AuthScreen({ onAuthSuccess }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <form
+          onSubmit={handleSubmit}
+          style={styles.form}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck="false"
+          data-lpignore="true"
+          data-form-type="other"
+        >
+          {/* Decoy hidden fields to absorb browser autofill */}
+          <input
+            type="text"
+            name="prevent_browser_autofill_user"
+            tabIndex={-1}
+            autoComplete="off"
+            style={{ position: 'absolute', top: -9999, left: -9999, opacity: 0, height: 0, width: 0 }}
+          />
+          <input
+            type="password"
+            name="prevent_browser_autofill_pass"
+            tabIndex={-1}
+            autoComplete="new-password"
+            style={{ position: 'absolute', top: -9999, left: -9999, opacity: 0, height: 0, width: 0 }}
+          />
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Username</label>
             <div style={styles.inputWrapper}>
               <User size={18} color="#64748b" style={styles.inputIcon} />
               <input
                 type="text"
-                autoComplete="username"
+                name="secret_shop_user_field"
+                id="secret_shop_user_field"
+                autoComplete="one-time-code"
+                data-lpignore="true"
+                data-form-type="other"
+                readOnly={!unlocked}
+                onFocus={() => setUnlocked(true)}
+                onClick={() => setUnlocked(true)}
+                onTouchStart={() => setUnlocked(true)}
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUnlocked(true);
+                  setUsername(e.target.value);
+                }}
                 placeholder="Enter username"
                 style={styles.input}
                 disabled={loading}
@@ -163,15 +243,35 @@ export default function AuthScreen({ onAuthSuccess }) {
             <div style={styles.inputWrapper}>
               <Lock size={18} color="#64748b" style={styles.inputIcon} />
               <input
-                type="password"
-                autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                type={showPassword ? 'text' : 'password'}
+                name="secret_shop_pass_field"
+                id="secret_shop_pass_field"
+                autoComplete="one-time-code"
+                data-lpignore="true"
+                data-form-type="other"
+                readOnly={!unlocked}
+                onFocus={() => setUnlocked(true)}
+                onClick={() => setUnlocked(true)}
+                onTouchStart={() => setUnlocked(true)}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setUnlocked(true);
+                  setPassword(e.target.value);
+                }}
                 placeholder="Enter password (min 6 chars)"
-                style={styles.input}
+                style={{ ...styles.input, paddingRight: '42px' }}
                 disabled={loading}
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.eyeBtn}
+                title={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} color="#64748b" /> : <Eye size={18} color="#64748b" />}
+              </button>
             </div>
           </div>
 
@@ -181,10 +281,21 @@ export default function AuthScreen({ onAuthSuccess }) {
               <div style={styles.inputWrapper}>
                 <Lock size={18} color="#64748b" style={styles.inputIcon} />
                 <input
-                  type="password"
-                  autoComplete="new-password"
+                  type={showPassword ? 'text' : 'password'}
+                  name="secret_shop_confirm_pass_field"
+                  id="secret_shop_confirm_pass_field"
+                  autoComplete="one-time-code"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  readOnly={!unlocked}
+                  onFocus={() => setUnlocked(true)}
+                  onClick={() => setUnlocked(true)}
+                  onTouchStart={() => setUnlocked(true)}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setUnlocked(true);
+                    setConfirmPassword(e.target.value);
+                  }}
                   placeholder="Re-enter password"
                   style={styles.input}
                   disabled={loading}
@@ -292,6 +403,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
+    position: 'relative',
   },
   inputGroup: {
     display: 'flex',
@@ -312,6 +424,17 @@ const styles = {
     position: 'absolute',
     left: '12px',
     pointerEvents: 'none',
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: '12px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px',
   },
   input: {
     width: '100%',
