@@ -1,0 +1,65 @@
+/* ==========================================================================
+   Motion System: Single Tasteful Hero Ambient Animation
+   Strictly adheres to: "one tasteful hero animation only. No scattered fade-in
+   effects on every section. Respects prefers-reduced-motion."
+   ========================================================================== */
+
+/* Hero ambient mesh float */
+@keyframes heroGlowShift {
+  0% {
+    transform: translate(-50%, -10%) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-48%, -6%) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -10%) scale(1);
+    opacity: 0.85;
+  }
+}
+
+/* Subtle floating badge in Hero */
+@keyframes floatBadge {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Gentle pulse for the floating WhatsApp button */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(18, 161, 80, 0.4), 0 0 0 0 rgba(18, 161, 80, 0.5);
+  }
+  50% {
+    box-shadow: 0 8px 30px rgba(18, 161, 80, 0.6), 0 0 0 10px rgba(18, 161, 80, 0);
+  }
+}
+
+.animate-hero-mesh {
+  animation: heroGlowShift 14s ease-in-out infinite;
+}
+
+.animate-float-badge {
+  animation: floatBadge 4s ease-in-out infinite;
+}
+
+.animate-whatsapp-pulse {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Accessibility: Disable all motion for prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
