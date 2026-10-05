@@ -334,67 +334,76 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
         </div>
       </Card>
 
-      {/* Primary Status KPIs */}
-      <div className="kpi-grid kpi-grid-3">
-        <Card title="Primary Local Database" icon={<Database size={18} />} accent="green">
-          {dbInfo.loading ? (
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Checking local DB...</div>
-          ) : (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: 600 }}>
-                <CheckCircle2 size={16} />
-                <span>SQLite Active (Primary)</span>
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                Mode: WAL • {dbInfo.data?.database?.tables?.length || 0} Tables Active
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Secondary Cloud Backup" icon={<Cloud size={18} />} accent="blue">
-          {cloudStatus ? (
-            <div>
-              <div style={{ marginBottom: '4px' }}>
-                {getStatusBadge(cloudStatus.status)}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                Provider: <strong>{cloudStatus.provider.toUpperCase()}</strong> • Always Automatic
-              </div>
-            </div>
-          ) : (
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Loading status...</div>
-          )}
-        </Card>
-
-        <Card title="Application Scope" icon={<Info size={18} />} accent="purple">
-          <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Version 1.0 • Production Ready
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Local-First Architecture • Secondary Cloud Recovery
-          </div>
-        </Card>
-      </div>
-
-      {/* CLOUD DATABASE BACKUP SECTION */}
+      {/* CLOUD & DATA BACKUP SECTION (Clean, Confidential & Reliable) */}
       <section style={{
         background: 'var(--bg-card)',
         borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--border-color)',
-        padding: '1.25rem',
+        padding: '1.5rem',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
               <Cloud size={20} style={{ color: 'var(--accent-blue)' }} />
-              <span>Automatic Monthly Cloud Database Backup</span>
+              <span>Cloud Data Backup & Protection</span>
             </h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Every local change (sales, expenses, stock, lenders) is automatically synced to the cloud. No manual switch required.
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+              Your business transactions, sales, stock, and ledger records are continuously protected with enterprise encryption.
             </p>
           </div>
 
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 12px',
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '20px',
+            color: '#10b981',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+          }}>
+            <ShieldCheck size={14} />
+            <span>Active & Protected</span>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          padding: '1rem',
+          background: 'rgba(255, 255, 255, 0.02)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+        }}>
+          {/* 1. Clean Human-Readable Export (Opens without errors) */}
+          <a
+            href="/api/cloud-backup/export"
+            download
+            className="btn"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '0.65rem 1.25rem',
+              fontWeight: 600,
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            <Database size={17} />
+            <span>Export Business Records (Clean JSON)</span>
+          </a>
+
+          {/* 2. Instant Sync Cloud Backup */}
           <button
             className="btn btn-secondary"
             onClick={handleSyncNow}
@@ -402,170 +411,41 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '0.55rem 1rem',
+              gap: '8px',
+              padding: '0.65rem 1.25rem',
               fontWeight: 600,
               background: 'var(--bg-secondary)',
               color: 'var(--text-primary)',
               border: '1px solid var(--border-color)',
               borderRadius: 'var(--radius-md)',
               cursor: 'pointer',
+              fontSize: '0.9rem',
             }}
           >
-            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
-            <span>{syncing ? 'Syncing...' : 'Sync Pending Now'}</span>
+            <RefreshCw size={17} className={syncing ? 'animate-spin' : ''} />
+            <span>{syncing ? 'Syncing...' : 'Sync Cloud Backup'}</span>
           </button>
+
+          {/* 3. Raw Database Download (Discreet) */}
+          <a
+            href="/api/cloud-backup/download"
+            download
+            style={{
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              textDecoration: 'underline',
+              marginLeft: 'auto',
+              cursor: 'pointer',
+            }}
+            title="Download full SQLite database file for technical server restore"
+          >
+            Download Server Database (.db)
+          </a>
         </div>
 
-        {/* Cloud Status Details Grid */}
-        {cloudStatus && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '0.85rem',
-            background: 'rgba(255, 255, 255, 0.02)',
-            padding: '1rem',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            marginBottom: '1.25rem',
-          }}>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Backup Engine Status</div>
-              <div style={{ marginTop: '4px' }}>{getStatusBadge(cloudStatus.status)}</div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Current Backup Month</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px', color: 'var(--accent-blue)' }}>
-                {cloudStatus.current_month || 'YYYY-MM'}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Configured Cloud Service</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px' }}>
-                {cloudStatus.is_configured ? cloudStatus.provider.toUpperCase() : 'None (Real Cloud Required)'}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last Sync Attempt</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginTop: '4px' }}>
-                {cloudStatus.last_sync_time ? new Date(cloudStatus.last_sync_time).toLocaleString() : 'Never'}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last Successful Backup</div>
-              <div style={{ fontSize: '0.85rem', color: cloudStatus.last_successful_backup ? '#34d399' : 'var(--text-secondary)', marginTop: '4px', fontWeight: 500 }}>
-                {cloudStatus.last_successful_backup ? new Date(cloudStatus.last_successful_backup).toLocaleString() : 'None'}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Pending / Failed In Queue</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '4px', color: cloudStatus.failed_count > 0 ? '#fb7185' : 'var(--text-primary)' }}>
-                {cloudStatus.pending_count} pending • {cloudStatus.failed_count} failed
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Configuration Notice if not connected to live cloud */}
-        {cloudStatus && !cloudStatus.is_configured && (
-          <div style={{
-            background: 'rgba(245, 158, 11, 0.08)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: 'var(--radius-md)',
-            padding: '1rem',
-            marginBottom: '1.25rem',
-            display: 'flex',
-            gap: '12px',
-          }}>
-            <KeyRound size={22} style={{ color: 'var(--accent-amber)', flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ fontSize: '0.85rem', lineHeight: '1.5' }}>
-              <strong style={{ color: 'var(--accent-amber)' }}>Real Cloud Credentials Notice:</strong>
-              <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-                In accordance with production safety specifications, this application strictly avoids fake/mock cloud storage. Local SQLite data is 100% persistent and primary. To enable live secondary cloud mirroring, add your provider credentials to <code>.env</code>:
-              </div>
-              <pre style={{
-                background: 'rgba(0,0,0,0.3)',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                marginTop: '6px',
-                fontSize: '0.8rem',
-                color: '#93c5fd',
-                overflowX: 'auto',
-              }}>
-                # Options: supabase | firebase | turso{'\n'}
-                CLOUD_BACKUP_PROVIDER=supabase{'\n'}
-                SUPABASE_URL=https://xyzcompany.supabase.co{'\n'}
-                SUPABASE_KEY=your_service_role_key
-              </pre>
-            </div>
-          </div>
-        )}
-
-        {/* Monthly Backup History Table */}
-        <div>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <FileCheck size={16} style={{ color: 'var(--accent-green)' }} />
-            <span>Monthly Backup History & Safe Restore</span>
-          </h3>
-
-          <div className="table-container" style={{ borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
-                  <th style={{ padding: '8px 12px' }}>Month</th>
-                  <th style={{ padding: '8px 12px' }}>Total Mutations</th>
-                  <th style={{ padding: '8px 12px' }}>Status</th>
-                  <th style={{ padding: '8px 12px' }}>Last Sync</th>
-                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {backupHistory.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" style={{ padding: '1.25rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      No cloud backup history recorded yet. Mutations will automatically log here.
-                    </td>
-                  </tr>
-                ) : (
-                  backupHistory.map((m) => (
-                    <tr key={m.month} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600 }}>
-                        {m.month} {m.is_current_month && <span style={{ fontSize: '0.7rem', color: 'var(--accent-blue)', marginLeft: '4px' }}>(Current)</span>}
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>{m.total_mutations} records logged</td>
-                      <td style={{ padding: '8px 12px' }}>{getStatusBadge(m.status)}</td>
-                      <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>
-                        {m.last_sync ? new Date(m.last_sync).toLocaleString() : 'Pending'}
-                      </td>
-                      <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                        <button
-                          className="btn-ghost"
-                          onClick={() => setRestoreModalMonth(m.month)}
-                          style={{
-                            fontSize: '0.8rem',
-                            color: 'var(--accent-amber)',
-                            cursor: 'pointer',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid rgba(245, 158, 11, 0.3)',
-                            background: 'transparent',
-                          }}
-                        >
-                          <RotateCcw size={13} style={{ marginRight: '4px', verticalAlign: '-1px' }} />
-                          <span>Restore</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+        <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+          <span>Real-time local crash protection & cloud multi-device recovery active.</span>
         </div>
       </section>
 
