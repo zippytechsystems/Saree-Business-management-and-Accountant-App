@@ -47,28 +47,29 @@ export default function PrivacyPage() {
             <section>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>2. Information We Collect</h3>
               <p>
-                We only collect information that you explicitly choose to provide when contacting founder Lingaswamy or requesting a quote:
+                We only collect information that you explicitly choose to provide when contacting founder Lingaswamy, submitting an enquiry form, or configuring a scope in our interactive project builder:
               </p>
               <ul style={{ paddingLeft: '1.5rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <li>Name and contact details (WhatsApp number, optional phone number).</li>
-                <li>Project requirements, specifications, and scope descriptions.</li>
+                <li>Contact details: Full name, valid 10-digit mobile number, WhatsApp number, and email address.</li>
+                <li>Project scope &amp; requirements: Selected service items, custom feature specifications, budget range, and timeline goals.</li>
+                <li>Communication preferences: WhatsApp update opt-in choices and callback requests.</li>
               </ul>
             </section>
 
             <section>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>3. How We Use Your Information</h3>
               <p>
-                Information provided is solely utilized to evaluate project scope, formulate transparent pricing quotations,
-                and communicate directly regarding development timelines. We never sell, lease, or distribute your
-                contact information to third-party marketing services.
+                Information provided is solely utilized to evaluate project requirements, prepare transparent pricing quotations,
+                and contact you within our committed 24-hour response timeline via WhatsApp, direct phone call, or email. We never sell, lease, or distribute your
+                contact information to any third-party marketing networks.
               </p>
             </section>
 
             <section>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>4. Direct WhatsApp Inquiries</h3>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>4. Direct WhatsApp &amp; Email Communications</h3>
               <p>
-                Our enquiry forms pre-format messages and open directly in your WhatsApp application. Conversations on
-                WhatsApp are subject to WhatsApp's standard end-to-end encryption and terms.
+                When using our forms or project builder, enquiries may be sent directly to founder Lingaswamy via WhatsApp (+91 63026 90251) or email.
+                WhatsApp conversations are protected by WhatsApp's standard end-to-end encryption. Transactional email alerts and confirmation notices are routed securely through dedicated edge infrastructure.
               </p>
             </section>
           </div>

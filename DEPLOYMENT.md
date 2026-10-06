@@ -21,8 +21,8 @@ Configure these environment variables in your deployment dashboard:
 | `CLOUD_BACKUP_PROVIDER` | Active cloud provider | `supabase` |
 | `SUPABASE_URL` | Supabase Project URL | `https://your-project.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret service-role API key | `eyJhbGciOi...` (bypasses RLS for backend) |
-| `CORS_ORIGIN` | (Backend) Allowed frontend domains for CORS | `https://your-site.netlify.app` or `*` |
-| `VITE_API_URL` | (Frontend / Netlify) Deployed Railway backend URL | `https://your-backend.up.railway.app` |
+| `CORS_ORIGIN` | (Backend) Allowed frontend domains for CORS | `https://yourdomain.com` or `*` |
+| `VITE_API_URL` | (Frontend) Optional custom backend API URL (Leave blank for Hostinger same-origin) | `https://yourdomain.com` |
 
 > [!CAUTION]
 > **Never commit `.env` or `SUPABASE_SERVICE_ROLE_KEY` to GitHub or public repositories.** Keep it strictly in your host provider's encrypted environment variable settings.
@@ -31,32 +31,23 @@ Configure these environment variables in your deployment dashboard:
 
 ## 2. Deployment Options
 
-### Option A: Render (Recommended for Web Services)
+### Option A: Hostinger (100% Native Full-Stack - Recommended)
+See the full guide in [`HOSTINGER_DEPLOY_GUIDE.md`](./HOSTINGER_DEPLOY_GUIDE.md):
+1. In Hostinger hPanel, create a Node.js Application pointing startup file to `backend/server.js`.
+2. Upload and extract [`hostinger_fullstack_deploy.zip`](./hostinger_fullstack_deploy.zip) directly into `public_html`.
+3. Run `npm install --omit=dev` and click **Restart Application**.
+4. Both the Express backend API and compiled React SPA are served seamlessly on your custom domain with `.htaccess` rewrite rules.
+
+---
+
+### Option B: Render (Web Services)
 1. Push your repository to GitHub.
-2. Log into [Render.com](https://render.com) and click **New > Blueprint**.
-3. Select this repository. Render will automatically read [`render.yaml`](./render.yaml).
-4. In the Environment settings, provide:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-5. Click **Apply Blueprint**. Render will build the Vite bundle and start the service with zero downtime.
+2. Log into [Render.com](https://render.com) and click **New > Web Service**.
+3. Set build command `npm run build` and start command `npm start`.
 
 ---
 
-### Option B: Vercel (Serverless Deployment)
-The repository includes pre-configured [`vercel.json`](./vercel.json) and [`api/index.js`](./api/index.js):
-1. Import the repository in your [Vercel Dashboard](https://vercel.com).
-2. Set Build Command: `npm run build`
-3. Set Output Directory: `dist`
-4. Add your Environment Variables:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `JWT_SECRET`
-   - `CLOUD_BACKUP_PROVIDER=supabase`
-5. Click **Deploy**. Vercel will serve your frontend static assets globally on CDN and route `/api/*` to the serverless function.
-
----
-
-### Option C: Docker / Google Cloud Run / VPS
+### Option C: Docker / VPS
 A multi-stage production [`Dockerfile`](./Dockerfile) and [`.dockerignore`](./.dockerignore) are included:
 
 1. **Build container image**:
@@ -70,37 +61,8 @@ A multi-stage production [`Dockerfile`](./Dockerfile) and [`.dockerignore`](./.d
      -p 5000:5000 \
      -e NODE_ENV=production \
      -e JWT_SECRET=your-secure-secret \
-     -e SUPABASE_URL=https://your-project.supabase.co \
-     -e SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key \
      --name saree-app saree-business-app:latest
    ```
-
----
-
-### Option D: Railway (Backend) + Netlify (Frontend)
-For decoupled architectures with the Node.js Express API on Railway and the React Vite SPA on Netlify:
-
-1. **Deploy Backend on Railway**:
-   - Create a service pointing to this repository (or `backend/` directory).
-   - In Railway **Variables**, configure:
-     - `PORT=5000`
-     - `NODE_ENV=production`
-     - `JWT_SECRET=your-secure-jwt-secret`
-     - `CLOUD_BACKUP_PROVIDER=supabase`
-     - `SUPABASE_URL=https://your-project.supabase.co`
-     - `SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key`
-     - `CORS_ORIGIN=https://your-site.netlify.app` (or `*`)
-   - In Railway **Settings > Networking**, generate a **Public Domain** (e.g., `https://saree-backend-production.up.railway.app`).
-
-2. **Deploy Frontend on Netlify**:
-   - Link your GitHub repository in [Netlify](https://app.netlify.com).
-   - **Build settings**:
-     - Build command: `npm run build`
-     - Publish directory: `dist`
-   - In **Site configuration > Environment variables**, add:
-     - **Key**: `VITE_API_URL`
-     - **Value**: `https://<your-railway-backend>.up.railway.app` *(Your Railway public HTTPS URL, without trailing slash)*
-   - Trigger a deploy or push to trigger automatic build.
 
 ---
 

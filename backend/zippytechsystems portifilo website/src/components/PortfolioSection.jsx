@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
 import { ExternalLink, MessageCircle, ArrowUpRight } from 'lucide-react';
 import { content, buildWhatsAppUrl } from '../data/content';
+import { useData } from '../context/DataContext';
+import { useScrollReveal } from '../hooks/useScrollReveal';
 
 export default function PortfolioSection() {
   const [activeFilter, setActiveFilter] = useState('all');
+  const { projectsData, loading } = useData();
+  const allProjects = projectsData && projectsData.length > 0 ? projectsData : content.projects;
+  useScrollReveal([activeFilter]);
+
 
   const filterTabs = [
     { id: 'all', label: 'All Projects' },
@@ -14,8 +20,8 @@ export default function PortfolioSection() {
 
   const filteredProjects =
     activeFilter === 'all'
-      ? content.projects
-      : content.projects.filter((p) => p.domain === activeFilter);
+      ? allProjects
+      : allProjects.filter((p) => p.domain === activeFilter);
 
   return (
     <section id="projects" style={{ padding: '5rem 0', background: 'var(--bg-surface)' }} aria-labelledby="portfolio-heading">
@@ -74,10 +80,76 @@ export default function PortfolioSection() {
           })}
         </div>
 
+        {/* Loading Skeleton */}
+        {loading && (!allProjects || allProjects.length === 0) && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: '2rem'
+            }}
+          >
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="card"
+                style={{
+                  height: '380px',
+                  background: 'var(--bg-card)',
+                  animation: 'pulse 1.5s infinite ease-in-out',
+                  borderRadius: 'var(--radius-lg)'
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Friendly Empty State */}
+        {!loading && filteredProjects.length === 0 && (
+          <div
+            className="card"
+            style={{
+              textAlign: 'center',
+              padding: '4rem 2rem',
+              maxWidth: '560px',
+              margin: '0 auto'
+            }}
+          >
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: 'rgba(29, 92, 240, 0.1)',
+                color: '#1d5cf0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1.25rem auto'
+              }}
+            >
+              <ExternalLink size={26} />
+            </div>
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+              No Projects Found in this Domain Yet
+            </h3>
+            <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              We are constantly developing custom business solutions. Reach out directly to founder Lingaswamy for bespoke requirements.
+            </p>
+            <button
+              onClick={() => setActiveFilter('all')}
+              className="btn btn-cta-yellow"
+              style={{ padding: '0.65rem 1.25rem' }}
+            >
+              View All Projects
+            </button>
+          </div>
+        )}
+
         {/* Projects Grid */}
         <div
           style={{
-            display: 'grid',
+            display: filteredProjects.length > 0 ? 'grid' : 'none',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: '2rem'
           }}
@@ -95,13 +167,14 @@ export default function PortfolioSection() {
             return (
               <article
                 key={project.id}
-                className="card"
+                className="card frosted-glass reveal-on-scroll"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   height: '100%'
                 }}
               >
+
                 {/* Visual Image Preview */}
                 <div
                   style={{
@@ -127,7 +200,7 @@ export default function PortfolioSection() {
 
                   {/* Domain Tag Overlay */}
                   <div style={{ position: 'absolute', top: '14px', left: '14px' }}>
-                    <span className={`badge ${tagClass}`} style={{ backdropFilter: 'blur(8px)' }}>
+                    <span className={`badge ${tagClass}`}>
                       {project.domainLabel}
                     </span>
                   </div>
@@ -139,14 +212,13 @@ export default function PortfolioSection() {
                         position: 'absolute',
                         bottom: '12px',
                         right: '12px',
-                        background: 'rgba(7, 12, 30, 0.85)',
+                        background: 'rgba(7, 12, 30, 0.92)',
                         color: '#ffe500',
                         fontSize: '0.78rem',
                         fontWeight: 700,
                         padding: '4px 10px',
                         borderRadius: 'var(--radius-full)',
-                        border: '1px solid rgba(255, 229, 0, 0.3)',
-                        backdropFilter: 'blur(6px)'
+                        border: '1px solid rgba(255, 229, 0, 0.3)'
                       }}
                     >
                       ⚡ {project.metrics}

@@ -13,6 +13,7 @@ import {
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
 import Toast from '../components/common/Toast';
+import Button from '../components/common/Button';
 import { formatCurrency, formatDate, getTodayDateString } from '../utils/formatters';
 
 const APPROVED_CATEGORIES = [
@@ -213,14 +214,23 @@ export default function ExpensesScreen() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary btn-sm" onClick={loadExpensesData} title="Refresh expenses">
-              <RotateCw size={15} />
-              <span>Refresh</span>
-            </button>
-            <button className="btn btn-primary" onClick={openAddModal}>
-              <Plus size={18} />
-              <span>Add Expense</span>
-            </button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={loadExpensesData}
+              isLoading={loading}
+              title="Refresh expenses"
+              icon={RotateCw}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              onClick={openAddModal}
+              icon={Plus}
+            >
+              Add Expense
+            </Button>
           </div>
         </div>
       </div>
@@ -259,18 +269,20 @@ export default function ExpensesScreen() {
         }}
       >
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className={`btn btn-sm ${viewFilter === 'today' ? 'btn-primary' : 'btn-secondary'}`}
+          <Button
+            size="sm"
+            variant={viewFilter === 'today' ? 'primary' : 'secondary'}
             onClick={() => setViewFilter('today')}
           >
-            <span>Today's Entries</span>
-          </button>
-          <button
-            className={`btn btn-sm ${viewFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            Today's Entries
+          </Button>
+          <Button
+            size="sm"
+            variant={viewFilter === 'all' ? 'primary' : 'secondary'}
             onClick={() => setViewFilter('all')}
           >
-            <span>All History</span>
-          </button>
+            All History
+          </Button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -310,10 +322,9 @@ export default function ExpensesScreen() {
                 ? "No expenses logged for today yet."
                 : 'No expenses found matching the selected filters.'}
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={openAddModal} style={{ marginTop: '12px' }}>
-              <Plus size={14} />
-              <span>Record Expense</span>
-            </button>
+            <Button variant="secondary" size="sm" onClick={openAddModal} icon={Plus} style={{ marginTop: '12px' }}>
+              Record Expense
+            </Button>
           </div>
         ) : (
           <table className="data-table">
@@ -340,22 +351,22 @@ export default function ExpensesScreen() {
                     {formatCurrency(item.amount)}
                   </td>
                   <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    <button
-                      className="btn-ghost"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => openEditModal(item)}
                       title="Edit expense"
+                      icon={Edit2}
                       style={{ padding: '6px', marginRight: '4px' }}
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      className="btn-ghost"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setDeletingExpense(item)}
                       title="Delete expense"
+                      icon={Trash2}
                       style={{ padding: '6px', color: '#fb7185' }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    />
                   </td>
                 </tr>
               ))}
@@ -429,9 +440,9 @@ export default function ExpensesScreen() {
           {formError && <div className="form-error" style={{ marginBottom: '12px' }}>{formError}</div>}
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => {
                 setIsAddModalOpen(false);
                 setEditingExpense(null);
@@ -439,10 +450,15 @@ export default function ExpensesScreen() {
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : editingExpense ? 'Update Expense' : 'Save Expense'}
-            </button>
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmitting}
+              loadingText="Saving..."
+            >
+              {editingExpense ? 'Update Expense' : 'Save Expense'}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -477,22 +493,23 @@ export default function ExpensesScreen() {
           </p>
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0', marginTop: '16px' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setDeletingExpense(null)}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-danger"
+              variant="danger"
               onClick={handleConfirmDelete}
-              disabled={isSubmitting}
+              isLoading={isSubmitting}
+              loadingText="Deleting..."
             >
-              {isSubmitting ? 'Deleting...' : 'Delete Expense'}
-            </button>
+              Delete Expense
+            </Button>
           </div>
         </div>
       </Modal>

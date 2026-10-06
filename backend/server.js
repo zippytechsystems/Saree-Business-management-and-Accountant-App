@@ -25,7 +25,7 @@ process.on('uncaughtException', (err) => {
 import { initDatabase } from './db/database.js';
 import apiRoutes from './routes/api.js';
 import * as cloudBackupService from './services/cloudBackupService.js';
-import * as supabaseService from './services/supabaseService.js';
+import * as mysqlService from './services/mysqlService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -241,32 +241,32 @@ if (process.env.VERCEL !== '1') {
   app.listen(PORT, async () => {
     console.log(`[Server] Backend service running on http://localhost:${PORT}`);
 
-    // Verify Authoritative Supabase Cloud Connection
-    const isSupabase = supabaseService.isSupabaseConfigured();
-    if (isSupabase) {
-      console.log('[Database] Checking Authoritative Supabase Cloud connection...');
+    // Verify Hostinger MySQL Database Connection
+    const isMysql = mysqlService.isMysqlConfigured();
+    if (isMysql) {
+      console.log('[Database] Checking Hostinger MySQL connection...');
       try {
-        const cloudConn = await supabaseService.testSupabaseConnection();
-        if (cloudConn.connected) {
-          console.log(`[Database] ✓ Authoritative Supabase connected: ${cloudConn.url}`);
-          console.log('[Database] Database Mode: authoritative_supabase (Primary: Cloud PostgreSQL, Cache: Local SQLite)');
+        const mysqlConn = await mysqlService.testMysqlConnection();
+        if (mysqlConn.connected) {
+          console.log('================================================================');
+          console.log(`[Hostinger MySQL] ✓ Connected to Hostinger MySQL: ${mysqlConn.database} on ${mysqlConn.host}`);
+          console.log('[Hostinger MySQL] Mode: hostinger_mysql (Authoritative Primary Engine)');
+          console.log('================================================================');
 
-          // Background retry of pending cloud sync jobs
-          cloudBackupService.retryPendingSyncs().catch((err) => {
-            console.error('[CloudBackup] Startup sync flush error:', err.message);
-          });
+          // Ensure MySQL schema tables are ready
+          await mysqlService.initMysqlSchema();
         } else {
-          console.error('[Database] ❌ Supabase credentials configured but connection check failed:', cloudConn.error || cloudConn.reason);
-          console.warn('[Database] WARNING: Falling back to local SQLite cache (/app/data/app.db).');
+          console.error('[Hostinger MySQL] ❌ MySQL credentials configured but connection check failed:', mysqlConn.message);
+          console.warn('[Hostinger MySQL] WARNING: Operating with local SQLite fallback (data/app.db).');
         }
       } catch (err) {
-        console.error('[Database] Exception during Supabase connection check:', err.message);
+        console.error('[Hostinger MySQL] Exception during MySQL connection check:', err.message);
       }
     } else {
       console.log('================================================================');
       console.log(`[Hostinger Server] ✓ App active on Hostinger (Port: ${PORT})`);
       console.log('[Hostinger Database] ✓ Standalone SQLite database operational at data/app.db (WAL Mode)');
-      console.log('[Hostinger Database] Mode: hostinger_authoritative (100% Server Persistent)');
+      console.log('[Hostinger Database] Mode: hostinger_sqlite (Configure DB_HOST, DB_NAME to enable MySQL)');
       console.log('================================================================');
     }
   });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Building2, MapPin, Tag, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import Button from '../components/common/Button';
 
 export default function BusinessProfileScreen({ onProfileComplete, initialProfile = null }) {
   const [businessName, setBusinessName] = useState(initialProfile?.business_name || '');
@@ -129,18 +130,16 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
             <span style={styles.helpText}>Short display name used on the dashboard & header</span>
           </div>
 
-          <button
+          <Button
             type="submit"
-            style={{
-              ...styles.submitBtn,
-              opacity: loading ? 0.7 : 1,
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-            disabled={loading}
+            variant="primary"
+            size="lg"
+            isLoading={loading}
+            icon={!loading ? ArrowRight : undefined}
+            style={{ width: '100%', marginTop: '10px' }}
           >
-            <span>{loading ? 'Saving Profile...' : 'CONTINUE TO DASHBOARD'}</span>
-            {!loading && <ArrowRight size={18} />}
-          </button>
+            CONTINUE TO DASHBOARD
+          </Button>
         </form>
 
         <div style={styles.securityNotice}>

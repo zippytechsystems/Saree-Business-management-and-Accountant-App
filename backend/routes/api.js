@@ -17,7 +17,7 @@ import * as reportService from '../services/reportService.js';
 import * as cloudBackupService from '../services/cloudBackupService.js';
 import * as authService from '../services/authService.js';
 import * as authoritativeDataService from '../services/authoritativeDataService.js';
-import * as supabaseService from '../services/supabaseService.js';
+import * as mysqlService from '../services/mysqlService.js';
 
 // Middleware
 import { authenticateOwner, requireAuth } from '../middleware/authMiddleware.js';
@@ -39,10 +39,10 @@ function handleError(res, error, defaultStatusCode = 400) {
 router.get('/health', async (req, res) => {
   try {
     const dbStatus = getDatabaseStatus();
-    const isSupabase = supabaseService.isSupabaseConfigured();
-    let cloudStatus = null;
-    if (isSupabase) {
-      cloudStatus = await supabaseService.testSupabaseConnection();
+    const isMysql = mysqlService.isMysqlConfigured();
+    let mysqlStatus = null;
+    if (isMysql) {
+      mysqlStatus = await mysqlService.testMysqlConnection();
     }
 
     res.json({
@@ -52,11 +52,11 @@ router.get('/health', async (req, res) => {
       status: 'Production Ready (V1.0)',
       database: {
         ...dbStatus,
-        mode: isSupabase && cloudStatus?.connected ? 'authoritative_supabase' : 'hostinger_authoritative',
-        engine: isSupabase && cloudStatus?.connected ? 'Supabase PostgreSQL' : 'Hostinger Enterprise SQLite (WAL Mode)',
-        supabase_configured: isSupabase,
-        supabase_connected: Boolean(cloudStatus?.connected),
-        supabase_url: isSupabase ? process.env.SUPABASE_URL : null,
+        mode: isMysql && mysqlStatus?.connected ? 'hostinger_mysql' : 'hostinger_sqlite',
+        engine: isMysql && mysqlStatus?.connected ? 'Hostinger MySQL (InnoDB)' : 'Hostinger Enterprise SQLite (WAL Mode)',
+        mysql_configured: isMysql,
+        mysql_connected: Boolean(mysqlStatus?.connected),
+        mysql_database: isMysql ? mysqlStatus?.database : null,
       },
       timestamp: new Date().toISOString(),
     });
@@ -612,9 +612,9 @@ router.put('/lenders/:id', async (req, res) => {
     const { id } = req.params;
     const updated = lenderService.updateLender(id, { ...req.body, userId: req.userId });
 
-    // Sync to cloud if configured
-    if (supabaseService.isSupabaseConfigured()) {
-      supabaseService.createCloudLender(req.userId, updated).catch(() => {});
+    // Sync to MySQL if configured
+    if (mysqlService.isMysqlConfigured()) {
+      mysqlService.createLender(req.userId, updated).catch(() => {});
     }
 
     res.json({
@@ -955,20 +955,20 @@ router.post('/cloud-provider/reconcile', requireAuth, async (req, res) => {
   }
 });
 
-// Compute financial parity audit between SQLite and Supabase
+// Compute financial parity audit for Hostinger MySQL
 router.get('/cloud-provider/parity-audit', requireAuth, async (req, res) => {
   try {
-    if (!supabaseService.isSupabaseConfigured()) {
+    if (!mysqlService.isMysqlConfigured()) {
       return res.status(400).json({
         success: false,
-        error: 'Cloud provider not configured. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to run parity audit.',
+        error: 'Hostinger MySQL database not configured. Configure DB_HOST, DB_NAME, DB_USER in environment.',
       });
     }
 
-    const cloudMetrics = await supabaseService.getCloudParityMetrics(req.userId);
+    const parityMetrics = await mysqlService.getMysqlParityMetrics(req.userId);
     res.json({
       success: true,
-      data: cloudMetrics,
+      data: parityMetrics,
     });
   } catch (error) {
     handleError(res, error, 500);

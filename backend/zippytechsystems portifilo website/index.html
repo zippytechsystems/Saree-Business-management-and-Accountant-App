@@ -51,9 +51,10 @@
       rel="stylesheet"
     />
 
-    <!-- Prevent Theme Flash -->
+    <!-- Prevent Theme Flash & Enable JS class early -->
     <script>
       (function() {
+        document.documentElement.classList.add('js');
         try {
           const savedTheme = localStorage.getItem('zippy_theme');
           if (savedTheme) {
@@ -77,11 +78,11 @@
           "@type": "Person",
           "name": "Lingaswamy",
           "jobTitle": "Founder & Solutions Architect",
-          "telephone": "+919542439498"
+          "telephone": "+916302690251"
         },
         "description": "Low budget, high value digital solutions for small and mid-size businesses in India. Web Development from ₹7,000, App Development from ₹10,000, AI Automation from ₹6,000.",
         "slogan": "Build • Automate • Grow",
-        "telephone": "+919542439498",
+        "telephone": "+916302690251",
         "priceRange": "₹6,000 - ₹50,000",
         "currenciesAccepted": "INR",
         "paymentAccepted": "Cash, UPI, Credit Card, Bank Transfer",

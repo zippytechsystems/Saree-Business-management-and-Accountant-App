@@ -21,5 +21,25 @@ dist-ssr
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
 *.sw?
+
+# Environment files and secrets
+.env
+.env*
+.env.local
+.env.*.local
+*.pem
+*.key
+*secrets*
+*credentials*
+service-account*.json
+
+# Archives
+*.zip
+*.tar
+*.gz
+
+# Audit Reports
+lh-*.json
+
+

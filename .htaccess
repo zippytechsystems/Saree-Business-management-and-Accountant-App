@@ -1,13 +1,24 @@
-# Hostinger Apache / LiteSpeed Configuration for Fullstack Node.js App
+# ====================================================================
+# Hostinger Apache / LiteSpeed Security & Fullstack Node.js Routing
+# ====================================================================
+
+# 1. HARDEN SECURITY: Block direct HTTP access to Database, Backend Code, & Secrets
+RedirectMatch 404 ^/(data|backend|\.env|ecosystem\.config\.cjs|package\.json)(/|$)
+
+<FilesMatch "\.(db|db-wal|db-shm|sqlite|env|sql|md)$">
+  Require all denied
+</FilesMatch>
+
+# 2. SPA CLIENT ROUTING
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Allow direct access to existing physical static files
+  # Allow direct access to existing physical static files (e.g., in dist/assets)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Route all other requests to the index.html SPA
+  # Route all other frontend requests to the index.html SPA
   RewriteRule ^ dist/index.html [L]
 </IfModule>

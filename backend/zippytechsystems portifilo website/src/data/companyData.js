@@ -11,7 +11,7 @@ export const companyData = {
   ],
   contact: {
     email: 'contact@zippytechsystems.com',
-    whatsapp: 'https://wa.me/?text=Hello%20ZippyTechSystems%2C%20I%20am%20interested%20in%20discussing%20a%20new%20project.',
+    whatsapp: 'https://wa.me/916302690251?text=Hello%20Lingaswamy%2C%20I%20am%20interested%20in%20discussing%20a%20new%20project%20with%20ZippyTechSystems.',
     responseTime: 'Replies typically within 24 business hours',
     availability: 'Monday – Friday, 9:00 AM – 6:00 PM IST'
   },
@@ -116,7 +116,7 @@ export const companyData = {
       links: [
         { label: 'Start a Project', path: '/contact' },
         { label: 'Request a Quote', path: '/contact?mode=quote' },
-        { label: 'WhatsApp Inquiry', path: 'https://wa.me/?text=Hello%20ZippyTechSystems%2C%20I%20would%20like%20to%20discuss%20a%20project.' }
+        { label: 'WhatsApp Inquiry', path: 'https://wa.me/916302690251?text=Hello%20Lingaswamy%2C%20I%20would%20like%20to%20discuss%20a%20project.' }
       ]
     },
     {

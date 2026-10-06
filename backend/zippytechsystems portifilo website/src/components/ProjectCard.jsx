@@ -100,9 +100,8 @@ export default function ProjectCard({ project, onSelectProject }) {
             <div
               style={{
                 padding: '0.6rem 1.25rem',
-                background: 'rgba(10, 15, 26, 0.85)',
-                backdropFilter: 'blur(8px)',
-                border: `1px solid ${project.accentColor}35`,
+                background: 'rgba(10, 15, 26, 0.95)',
+                border: `1px solid ${project.accentColor}40`,
                 borderRadius: 'var(--radius-md)',
                 display: 'flex',
                 alignItems: 'center',

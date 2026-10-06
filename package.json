@@ -8,22 +8,25 @@
     "client": "vite",
     "server": "node --no-warnings=ExperimentalWarning backend/server.js",
     "start": "node --no-warnings=ExperimentalWarning backend/server.js",
-    "build": "vite build",
+    "build": "cross-env NODE_ENV=production vite build",
     "preview": "vite preview",
-    "migrate:supabase": "node backend/scripts/migrate_sqlite_to_supabase.js"
+    "migrate:mysql": "node scripts/migrate_sqlite_to_mysql.js",
+    "export:mysql": "node scripts/export_sqlite_to_mysql_dump.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.117.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "lucide-react": "^0.475.0",
+    "mysql2": "^3.24.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0",
+    "rollup-plugin-visualizer": "^7.1.1",
     "vite": "^6.2.0"
   }
 }

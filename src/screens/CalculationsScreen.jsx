@@ -17,6 +17,8 @@ import {
   IndianRupee,
 } from 'lucide-react';
 import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import PageTransition from '../components/common/PageTransition';
 import { formatCurrency, formatMonth, getCurrentMonthString } from '../utils/formatters';
 
 const APPROVED_EXPENSE_CATEGORIES = [
@@ -150,15 +152,17 @@ export default function CalculationsScreen() {
               Pure automated aggregation of sales, expenses, inventory, and credit balances
             </p>
           </div>
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => loadAll(selectedMonth)}
             disabled={loading}
+            isLoading={loading}
+            icon={RotateCw}
             title="Refresh Calculations"
           >
-            <RotateCw size={15} className={loading ? 'spin' : ''} />
-            <span>Refresh</span>
-          </button>
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -169,12 +173,13 @@ export default function CalculationsScreen() {
             <AlertTriangle size={18} />
             <span>{error}</span>
           </div>
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => loadAll(selectedMonth)}
           >
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
@@ -211,6 +216,7 @@ export default function CalculationsScreen() {
       </div>
 
       {/* 6. MONTHLY SUMMARY HERO CARD */}
+      <PageTransition activeKey={selectedMonth}>
       <div className="summary-hero-card">
         <div className="summary-hero-header">
           <div>
@@ -630,6 +636,7 @@ export default function CalculationsScreen() {
           </tfoot>
         </table>
       </div>
+      </PageTransition>
     </div>
   );
 }

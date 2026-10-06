@@ -54,17 +54,24 @@ export function authenticateOwner(req, res, next) {
 
   if (token) {
     const sessionData = getUserFromToken(token);
-    if (!sessionData) {
+    if (sessionData) {
+      req.user = sessionData.user;
+      req.userId = sessionData.user.id;
+      req.profile = sessionData.profile;
+      req.authToken = token;
+      return next();
+    }
+
+    // Token was supplied but is invalid or expired
+    if (req.headers['x-require-auth'] === 'true' || req.method !== 'GET') {
       return res.status(401).json({
         success: false,
         error: 'Unauthorized: Invalid or expired session token.',
       });
     }
-    req.user = sessionData.user;
-    req.userId = sessionData.user.id;
-    req.profile = sessionData.profile;
-    req.authToken = token;
-    return next();
+
+    // For safe read operations (GET) with a stale client token, notify client and fall back to default owner
+    res.setHeader('X-Session-Status', 'expired');
   }
 
   // If in strict mode or explicit auth-required header

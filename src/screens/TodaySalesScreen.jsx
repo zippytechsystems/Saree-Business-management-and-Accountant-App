@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Save, History, RotateCw, CheckCircle2, Calendar } from 'lucide-react';
 import Card from '../components/common/Card';
 import Toast from '../components/common/Toast';
+import Button from '../components/common/Button';
 import { formatCurrency, formatDate, getTodayDateString } from '../utils/formatters';
 
 export default function TodaySalesScreen() {
@@ -114,10 +115,16 @@ export default function TodaySalesScreen() {
               Fast daily lump-sum sales recording (no product selection required)
             </p>
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={loadSalesData} title="Refresh sales data">
-            <RotateCw size={15} />
-            <span>Refresh</span>
-          </button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={loadSalesData}
+            isLoading={loading}
+            title="Refresh sales data"
+            icon={RotateCw}
+          >
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -194,15 +201,16 @@ export default function TodaySalesScreen() {
           {formError && <div className="form-error" style={{ marginBottom: '14px' }}>{formError}</div>}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-            <button
+            <Button
               type="submit"
-              className="btn btn-success"
+              variant="success"
               style={{ width: '100%', maxWidth: '280px' }}
-              disabled={isSubmitting}
+              isLoading={isSubmitting}
+              loadingText="Saving..."
+              icon={Save}
             >
-              <Save size={18} />
-              <span>{isSubmitting ? 'Saving...' : existingForDate ? 'Update Daily Sales' : 'Save Today Sales'}</span>
-            </button>
+              {existingForDate ? 'Update Daily Sales' : 'Save Today Sales'}
+            </Button>
           </div>
         </form>
       </div>
@@ -247,16 +255,17 @@ export default function TodaySalesScreen() {
                     {formatCurrency(item.total_sales_amount)}
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => {
                         setSelectedDate(item.entry_date);
                         setAmountInput(String(item.total_sales_amount));
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                     >
-                      <span>Edit</span>
-                    </button>
+                      Edit
+                    </Button>
                   </td>
                 </tr>
               ))}

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 import db from '../backend/db/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -9,6 +10,14 @@ const rootDir = path.resolve(__dirname, '..');
 const stagingDir = path.resolve(rootDir, 'staging_deploy');
 
 console.log('Preparing Hostinger Deployment Package in:', stagingDir);
+
+// 0. Regenerate latest Hostinger MySQL database dump
+try {
+  console.log('Generating latest Hostinger MySQL dump...');
+  execSync('node scripts/export_sqlite_to_mysql_dump.js', { cwd: rootDir, stdio: 'inherit' });
+} catch (e) {
+  console.warn('! Note on MySQL dump generation:', e.message);
+}
 
 // 1. Recreate staging directory
 if (fs.existsSync(stagingDir)) {
@@ -27,11 +36,24 @@ try {
   console.warn('! Note on database copy:', e.message);
 }
 
-// 3. Copy files/directories recursively
+// 3. Copy files/directories recursively with filter
+const IGNORED_NAMES = new Set([
+  'node_modules',
+  '.git',
+  '.DS_Store',
+  'netlify.toml',
+  '_redirects',
+  'zippytechsystems portifilo website',
+  'tests',
+]);
+
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (IGNORED_NAMES.has(entry.name) || entry.name.includes('netlify')) {
+      continue;
+    }
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
@@ -55,7 +77,7 @@ const filesToCopy = [
   'package.json',
   '.htaccess',
   'ecosystem.config.cjs',
-  'HOSTINGER_DEPLOY_GUIDE.md'
+  'HOSTINGER_DEPLOY_GUIDE.md',
 ];
 
 for (const file of filesToCopy) {
@@ -66,4 +88,15 @@ for (const file of filesToCopy) {
   }
 }
 
-console.log('✓ Staging directory ready for archive compression.');
+console.log('✓ Staging directory ready for Hostinger upload.');
+
+// Zip generation
+try {
+  const zipPath = path.join(rootDir, 'hostinger_fullstack_deploy.zip');
+  if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+  console.log('Compressing staging_deploy into hostinger_fullstack_deploy.zip...');
+  execSync(`powershell -command "Compress-Archive -Path '${stagingDir}\\*' -DestinationPath '${zipPath}' -Force"`);
+  console.log(`✓ Generated ready-to-upload package: ${zipPath}`);
+} catch (e) {
+  console.log('! Note: Zip creation skipped:', e.message);
+}

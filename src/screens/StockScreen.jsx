@@ -13,6 +13,7 @@ import {
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
 import Toast from '../components/common/Toast';
+import Button from '../components/common/Button';
 import { getTodayDateString, formatDate } from '../utils/formatters';
 
 export default function StockScreen() {
@@ -171,18 +172,30 @@ export default function StockScreen() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary btn-sm" onClick={loadStockData} title="Refresh Stock Data">
-              <RotateCw size={15} />
-              <span>Refresh</span>
-            </button>
-            <button className="btn btn-secondary" onClick={() => setIsAddVarietyOpen(true)}>
-              <Plus size={18} />
-              <span>Add Variety</span>
-            </button>
-            <button className="btn btn-primary" onClick={() => setIsMovementOpen(true)}>
-              <Boxes size={18} />
-              <span>Update Stock (IN / OUT)</span>
-            </button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={loadStockData}
+              isLoading={loading}
+              title="Refresh Stock Data"
+              icon={RotateCw}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsAddVarietyOpen(true)}
+              icon={Plus}
+            >
+              Add Variety
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => setIsMovementOpen(true)}
+              icon={Boxes}
+            >
+              Update Stock (IN / OUT)
+            </Button>
           </div>
         </div>
       </div>
@@ -229,14 +242,15 @@ export default function StockScreen() {
           <div className="empty-state">
             <Boxes size={36} className="empty-state-icon" />
             <div className="empty-state-text">No product varieties created yet.</div>
-            <button
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setIsAddVarietyOpen(true)}
+              icon={Plus}
               style={{ marginTop: '12px' }}
             >
-              <Plus size={14} />
-              <span>Add Your First Variety</span>
-            </button>
+              Add Your First Variety
+            </Button>
           </div>
         ) : (
           <table className="data-table">
@@ -267,15 +281,16 @@ export default function StockScreen() {
                     </span>
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => {
                         setMovementForm((prev) => ({ ...prev, product_id: String(v.id) }));
                         setIsMovementOpen(true);
                       }}
                     >
-                      <span>Update</span>
-                    </button>
+                      Update
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -360,17 +375,22 @@ export default function StockScreen() {
             {varietyError && <div className="form-error">{varietyError}</div>}
           </div>
           <div className="modal-footer" style={{ padding: '16px 0 0 0' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setIsAddVarietyOpen(false)}
               disabled={isSubmittingVariety}
             >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmittingVariety}>
-              {isSubmittingVariety ? 'Saving...' : 'Save Variety'}
-            </button>
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmittingVariety}
+              loadingText="Saving..."
+            >
+              Save Variety
+            </Button>
           </div>
         </form>
       </Modal>
@@ -391,7 +411,7 @@ export default function StockScreen() {
             >
               <option value="">-- Select Product Variety --</option>
               {varieties.map((v) => (
-                <option key={v.id} value={v.id}>
+                 <option key={v.id} value={v.id}>
                   {v.name} (Current: {v.current_stock} units)
                 </option>
               ))}
@@ -401,22 +421,22 @@ export default function StockScreen() {
           <div className="form-group">
             <label className="form-label">Movement Direction *</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <button
+              <Button
                 type="button"
-                className={`btn ${movementForm.movement_type === 'IN' ? 'btn-success' : 'btn-secondary'}`}
+                variant={movementForm.movement_type === 'IN' ? 'success' : 'secondary'}
                 onClick={() => setMovementForm({ ...movementForm, movement_type: 'IN' })}
+                icon={ArrowDownLeft}
               >
-                <ArrowDownLeft size={18} />
-                <span>IN (Arrival / Purchase)</span>
-              </button>
-              <button
+                IN (Arrival / Purchase)
+              </Button>
+              <Button
                 type="button"
-                className={`btn ${movementForm.movement_type === 'OUT' ? 'btn-danger' : 'btn-secondary'}`}
+                variant={movementForm.movement_type === 'OUT' ? 'danger' : 'secondary'}
                 onClick={() => setMovementForm({ ...movementForm, movement_type: 'OUT' })}
+                icon={ArrowUpRight}
               >
-                <ArrowUpRight size={18} />
-                <span>OUT (Dispatch / Sold)</span>
-              </button>
+                OUT (Dispatch / Sold)
+              </Button>
             </div>
           </div>
 
@@ -458,17 +478,22 @@ export default function StockScreen() {
           {movementError && <div className="form-error" style={{ marginBottom: '12px' }}>{movementError}</div>}
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setIsMovementOpen(false)}
               disabled={isSubmittingMovement}
             >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmittingMovement}>
-              {isSubmittingMovement ? 'Recording...' : 'Record Movement'}
-            </button>
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmittingMovement}
+              loadingText="Recording..."
+            >
+              Record Movement
+            </Button>
           </div>
         </form>
       </Modal>

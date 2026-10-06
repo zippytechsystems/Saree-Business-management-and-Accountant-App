@@ -45,48 +45,23 @@ export function initCloudBackupTables() {
 // Call initialization
 initCloudBackupTables();
 
+import mysqlClient from '../db/mysqlClient.js';
+
 /**
- * Get active cloud provider configuration from environment
+ * Get active database / cloud provider configuration from environment
  */
 export function getCloudConfig() {
-  const provider = (process.env.CLOUD_BACKUP_PROVIDER || '').toLowerCase();
-
-  // Supabase
-  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '').trim();
-  const supabaseUrl = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
-
-  if (provider === 'supabase' || (supabaseUrl && supabaseKey)) {
+  if (mysqlClient.isMysqlConfigured()) {
     return {
-      provider: 'supabase',
-      url: supabaseUrl,
-      key: supabaseKey,
-      isConfigured: Boolean(supabaseUrl && supabaseKey),
-    };
-  }
-
-  // Firebase Firestore
-  if (provider === 'firebase' || process.env.FIREBASE_PROJECT_ID) {
-    return {
-      provider: 'firebase',
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      apiKey: process.env.FIREBASE_API_KEY,
-      isConfigured: Boolean(process.env.FIREBASE_PROJECT_ID),
-    };
-  }
-
-  // Turso / Cloud SQLite
-  if (provider === 'turso' || process.env.TURSO_DATABASE_URL) {
-    return {
-      provider: 'turso',
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
-      isConfigured: Boolean(process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN),
+      provider: 'hostinger_mysql',
+      isConfigured: true,
+      engine: 'Hostinger MySQL Database (InnoDB)',
     };
   }
 
   // Hostinger Native Persistent Database (Default standalone mode)
   return {
-    provider: 'hostinger',
+    provider: 'hostinger_sqlite',
     isConfigured: true,
     engine: 'Hostinger Native Persistent Storage (SQLite WAL)',
   };
@@ -332,14 +307,16 @@ export function getBackupStatus() {
     currentStatus = 'pending';
   }
 
-  const isHostinger = config.provider === 'hostinger';
+  const isHostinger = config.provider && config.provider.startsWith('hostinger');
 
   return {
     provider: config.provider,
     is_configured: config.isConfigured,
     status: currentStatus,
-    status_label: isHostinger
-      ? '✓ Hostinger Server Database Active (Persistent)'
+    status_label: config.provider === 'hostinger_mysql'
+      ? '✓ Hostinger MySQL Database Active (InnoDB)'
+      : isHostinger
+      ? '✓ Hostinger SQLite Database Active (WAL Mode)'
       : currentStatus === 'synced'
       ? '✓ Synced'
       : currentStatus === 'pending'
@@ -355,10 +332,11 @@ export function getBackupStatus() {
     configuration_instructions: isHostinger
       ? null
       : !config.isConfigured
-      ? 'Add CLOUD_BACKUP_PROVIDER and credentials in .env to connect external cloud.'
+      ? 'Configure DB_HOST, DB_NAME, DB_USER in Hostinger environment to connect MySQL.'
       : null,
   };
 }
+
 
 /**
  * Get monthly backup history across all recorded months

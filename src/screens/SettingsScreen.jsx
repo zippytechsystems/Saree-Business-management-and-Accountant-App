@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
+import Button from '../components/common/Button';
 
 export default function SettingsScreen({ businessProfile: initialProfile, user, onLogout, onProfileUpdate }) {
   const [profile, setProfile] = useState(initialProfile || null);
@@ -300,36 +301,23 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
           </div>
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setEditingProfile(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer' }}
+              icon={Edit2}
             >
-              <Edit2 size={14} />
-              <span>Edit Profile</span>
-            </button>
+              Edit Profile
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
               onClick={handleLogout}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: '#ef4444',
-                color: '#ffffff',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-              }}
+              icon={LogOut}
             >
-              <LogOut size={16} />
-              <span>LOGOUT</span>
-            </button>
+              LOGOUT
+            </Button>
           </div>
         </div>
       </Card>
@@ -404,27 +392,15 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
           </a>
 
           {/* 2. Instant Sync Cloud Backup */}
-          <button
-            className="btn btn-secondary"
+          <Button
+            variant="secondary"
             onClick={handleSyncNow}
             disabled={syncing}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '0.65rem 1.25rem',
-              fontWeight: 600,
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-md)',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-            }}
+            isLoading={syncing}
+            icon={RefreshCw}
           >
-            <RefreshCw size={17} className={syncing ? 'animate-spin' : ''} />
-            <span>{syncing ? 'Syncing...' : 'Sync Cloud Backup'}</span>
-          </button>
+            Sync Cloud Backup
+          </Button>
 
           {/* 3. Raw Database Download (Discreet) */}
           <a
@@ -496,45 +472,31 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-            <button
-              className="btn btn-secondary"
+            <Button
+              variant="secondary"
               onClick={() => {
                 setRestoreModalMonth(null);
                 setRestoreFeedback(null);
               }}
               disabled={restoring}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
-                cursor: 'pointer',
-              }}
             >
               Close
-            </button>
+            </Button>
 
-            <button
-              className="btn btn-primary"
+            <Button
+              variant="primary"
               onClick={handleExecuteRestore}
               disabled={restoring}
+              isLoading={restoring}
+              icon={RotateCcw}
               style={{
-                padding: '0.5rem 1.25rem',
-                borderRadius: 'var(--radius-sm)',
                 background: 'var(--accent-amber)',
                 color: '#000000',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
+                borderColor: 'var(--accent-amber)',
               }}
             >
-              {restoring ? <RefreshCw size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-              <span>{restoring ? 'Verifying & Restoring...' : 'Confirm Safe Restore'}</span>
-            </button>
+              Confirm Safe Restore
+            </Button>
           </div>
         </div>
       </Modal>
@@ -614,26 +576,24 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => {
                 setEditingProfile(false);
                 setProfileError(null);
               }}
               disabled={profileSaving}
-              style={{ padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="btn btn-primary"
-              disabled={profileSaving}
-              style={{ padding: '0.5rem 1.25rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+              variant="primary"
+              isLoading={profileSaving}
             >
-              {profileSaving ? 'Saving...' : 'Save Changes'}
-            </button>
+              Save Changes
+            </Button>
           </div>
         </form>
       </Modal>

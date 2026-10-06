@@ -54,10 +54,9 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>3. Direct Contact &amp; Support</h3>
+              <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>3. Direct Contact, Response Commitment &amp; Support</h3>
               <p>
-                Client engagements are directly overseen by founder Lingaswamy. Milestone delivery schedules, code ownership,
-                and warranty terms are provided in writing for every development agreement.
+                Client engagements are directly overseen by founder Lingaswamy. We commit to responding to all customer enquiries within our 24-hour target via phone (+91 63026 90251), WhatsApp, or email. Milestone delivery schedules, code ownership, and warranty terms are provided in writing for every development agreement.
               </p>
             </section>
           </div>

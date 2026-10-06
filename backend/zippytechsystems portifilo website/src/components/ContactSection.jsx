@@ -1,43 +1,94 @@
 import React, { useState } from 'react';
 import { MessageCircle, Phone, Mail, MapPin, Send, CheckCircle2 } from 'lucide-react';
 import { content, buildEnquiryWhatsAppUrl, buildWhatsAppUrl } from '../data/content';
+import { useData } from '../context/DataContext';
 
 export default function ContactSection() {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    email: '',
     service: 'Web Development (from ₹7,000)',
-    message: ''
+    message: '',
+    whatsappOptIn: true,
+    honeypot: ''
   });
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const { saveEnquiry, settingsData, domainsData, formatINR } = useData();
+
+  const rawPhone = settingsData?.phone || content.founder.phone || '6302690251';
+  const cleanActivePhone = String(rawPhone).replace(/[^0-9]/g, '').replace(/^91/, '');
+  const activePhoneFormatted = cleanActivePhone.length === 10
+    ? `+91 ${cleanActivePhone.slice(0, 5)} ${cleanActivePhone.slice(5)}`
+    : (settingsData?.phoneFormatted || content.founder.phoneFormatted || `+91 ${cleanActivePhone}`);
+
+  const rawWhatsApp = settingsData?.whatsappNumber || content.founder.whatsappNumber || '6302690251';
+  const cleanDigitsWa = String(rawWhatsApp).replace(/[^0-9]/g, '');
+  const activeWhatsApp = cleanDigitsWa.startsWith('91') ? cleanDigitsWa : `91${cleanDigitsWa}`;
+  const responseTime = settingsData?.responseTimeText || '24 hours';
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.phone.trim()) {
-      alert('Please provide your name and phone number so Lingaswamy can reply to your quote.');
+    setFormError('');
+
+    if (!formData.name.trim()) {
+      setFormError('Please enter your name.');
       return;
     }
 
-    const whatsappUrl = buildEnquiryWhatsAppUrl({
-      name: formData.name,
-      phone: formData.phone,
-      service: formData.service,
-      message: formData.message
-    });
+    const cleanDigits = formData.phone.replace(/[^0-9]/g, '');
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!cleanDigits || cleanDigits.length !== 10 || !mobileRegex.test(cleanDigits)) {
+      setFormError('Please enter a valid 10-digit Indian mobile number (starts with 6, 7, 8, or 9).');
+      return;
+    }
+
+    // 1. Save to Supabase (or local fallback)
+    try {
+      await saveEnquiry({
+        name: formData.name.trim(),
+        phone: cleanDigits,
+        email: formData.email.trim(),
+        service: formData.service,
+        message: formData.message.trim(),
+        source: 'contact',
+        whatsappOptIn: formData.whatsappOptIn,
+        honeypot: formData.honeypot
+      });
+    } catch (err) {
+      console.warn('Error saving enquiry to database:', err);
+    }
+
+    // 2. Open WhatsApp with prefilled message
+    const waNumber = activeWhatsApp.startsWith('91') ? activeWhatsApp : `91${activeWhatsApp}`;
+    const prefillText = encodeURIComponent(`*New Project Enquiry — ZippyTechSystems*
+-----------------------------
+👤 *Name:* ${formData.name.trim()}
+📱 *Phone:* ${cleanDigits}
+${formData.email.trim() ? `✉️ *Email:* ${formData.email.trim()}\n` : ''}🛠️ *Service Needed:* ${formData.service}
+💬 *Project Details:* ${formData.message.trim() || 'I would like more information and a price quote.'}
+-----------------------------
+(Sent from zippytechsystems.com portfolio website)`);
+
+    const whatsappUrl = `https://wa.me/${waNumber}?text=${prefillText}`;
 
     setFormSubmitted(true);
-    // Open WhatsApp in new tab with prefilled message
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const directWhatsAppUrl = buildWhatsAppUrl(
-    'Hi Lingaswamy, I would like to get a quote and discuss a project with ZippyTechSystems.'
-  );
+  const founderName = settingsData?.founderName || 'Lingaswamy Maddeboina';
+  const founderFirstName = founderName.split(' ')[0];
+
+  const directWhatsAppUrl = `https://wa.me/${activeWhatsApp.startsWith('91') ? activeWhatsApp : `91${activeWhatsApp}`}?text=${encodeURIComponent(
+    `Hi ${founderFirstName}, I would like to get a quote and discuss a project with ZippyTechSystems.`
+  )}`;
 
   return (
     <section id="contact" style={{ padding: '5rem 0', background: 'var(--bg-canvas)' }} aria-labelledby="contact-heading">
@@ -52,7 +103,7 @@ export default function ContactSection() {
             Get an <span style={{ color: '#12a150' }}>Instant WhatsApp Quote</span>
           </h2>
           <p style={{ fontSize: '1.05rem', color: 'var(--text-body)', lineHeight: 1.6 }}>
-            Submit the form below to connect directly with founder Lingaswamy.
+            Submit the form below to connect directly with founder {founderName}.
             Your message will open automatically in WhatsApp with all project specs pre-filled.
           </p>
         </div>
@@ -74,11 +125,11 @@ export default function ContactSection() {
                 Direct Founder Contact
               </h3>
               <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', marginBottom: '1.75rem', lineHeight: 1.6 }}>
-                Speak directly with <strong style={{ color: 'var(--text-main)' }}>Lingaswamy</strong>, Founder &amp; Chief Architect.
+                Speak directly with <strong style={{ color: 'var(--text-main)' }}>{founderName}</strong>, Founder &amp; Chief Architect.
                 We respond within minutes on WhatsApp during business hours.
               </p>
 
-              {/* Action Buttons */}
+              {/* Action Buttons: WhatsApp, Call, Email */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 <a
                   href={directWhatsAppUrl}
@@ -88,17 +139,28 @@ export default function ContactSection() {
                   style={{ padding: '0.9rem', fontSize: '1rem' }}
                 >
                   <MessageCircle size={18} />
-                  <span>Chat on WhatsApp: {content.founder.phone}</span>
+                  <span>Chat on WhatsApp: {activePhoneFormatted}</span>
                 </a>
 
                 <a
-                  href={`tel:${content.founder.phone}`}
+                  href={`tel:+91${cleanActivePhone}`}
                   className="btn btn-outline"
                   style={{ padding: '0.9rem', fontSize: '1rem' }}
                 >
                   <Phone size={18} color="#12a150" />
-                  <span>Call Directly: {content.founder.phoneFormatted}</span>
+                  <span>Call Directly: {activePhoneFormatted}</span>
                 </a>
+
+                {settingsData?.email && settingsData.email.trim() && (
+                  <a
+                    href={`mailto:${settingsData.email.trim()}?subject=Project%20Enquiry%20-%20ZippyTechSystems`}
+                    className="btn btn-outline"
+                    style={{ padding: '0.9rem', fontSize: '1rem' }}
+                  >
+                    <Mail size={18} color="#1d5cf0" />
+                    <span>Email us: {settingsData.email.trim()}</span>
+                  </a>
+                )}
               </div>
             </div>
 
@@ -110,7 +172,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Phone &amp; WhatsApp</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{content.founder.phoneFormatted}</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>{activePhoneFormatted}</div>
                 </div>
               </div>
 
@@ -144,6 +206,22 @@ export default function ContactSection() {
             <p style={{ color: 'var(--text-dim)', fontSize: '0.88rem', marginBottom: '1.75rem' }}>
               Fill in your requirement below. Clicking submit opens WhatsApp with your prefilled details.
             </p>
+
+            {formError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid #ef4444',
+                  color: '#ef4444',
+                  padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: '1.25rem',
+                  fontSize: '0.9rem'
+                }}
+              >
+                {formError}
+              </div>
+            )}
 
             {formSubmitted && (
               <div
@@ -198,6 +276,32 @@ export default function ContactSection() {
                 />
               </div>
 
+              {/* Anti-spam honeypot */}
+              <input
+                type="text"
+                name="honeypot"
+                value={formData.honeypot}
+                onChange={handleChange}
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+
+              <div className="form-group">
+                <label htmlFor="contact-email" className="form-label">
+                  Email Address (Optional)
+                </label>
+                <input
+                  type="email"
+                  id="contact-email"
+                  name="email"
+                  placeholder="e.g. ramesh@example.com (for quote PDF)"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="form-input"
+                />
+              </div>
+
               <div className="form-group">
                 <label htmlFor="contact-service" className="form-label">
                   Service Needed *
@@ -209,9 +313,19 @@ export default function ContactSection() {
                   onChange={handleChange}
                   className="form-select"
                 >
-                  <option value="Web Development (from ₹7,000)">Web Development (from ₹7,000)</option>
-                  <option value="App Development (from ₹10,000)">App Development (from ₹10,000)</option>
-                  <option value="AI Automation (from ₹6,000)">AI Automation (from ₹6,000)</option>
+                  {domainsData && domainsData.length > 0 ? (
+                    domainsData.map((d) => (
+                      <option key={d.key || d.id} value={`${d.name} (${d.price_label || 'from'} ${formatINR(d.starting_price)})`}>
+                        {d.name} ({d.price_label || 'from'} {formatINR(d.starting_price)})
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="Web Development (from ₹7,000)">Web Development (from ₹7,000)</option>
+                      <option value="App Development (from ₹10,000)">App Development (from ₹10,000)</option>
+                      <option value="AI Automation (from ₹6,000)">AI Automation (from ₹6,000)</option>
+                    </>
+                  )}
                   <option value="Complete Web + App + AI Package">Complete Web + App + AI Package</option>
                   <option value="Other / Custom Software Consulting">Other / Custom Software Consulting</option>
                 </select>
@@ -232,6 +346,19 @@ export default function ContactSection() {
                 />
               </div>
 
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '1.25rem' }}>
+                <input
+                  type="checkbox"
+                  name="whatsappOptIn"
+                  checked={formData.whatsappOptIn}
+                  onChange={handleChange}
+                  style={{ width: '16px', height: '16px', accentColor: '#12a150', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-dim)' }}>
+                  I agree to be contacted on WhatsApp about my enquiry
+                </span>
+              </label>
+
               <button
                 type="submit"
                 className="btn btn-cta-yellow"
@@ -239,24 +366,21 @@ export default function ContactSection() {
                   width: '100%',
                   padding: '0.9rem',
                   fontSize: '1rem',
-                  marginTop: '0.5rem'
+                  marginTop: '0.25rem'
                 }}
               >
                 <Send size={18} />
                 <span>Send Enquiry on WhatsApp</span>
               </button>
 
-              <p
-                style={{
-                  fontSize: '0.78rem',
-                  color: 'var(--text-dim)',
-                  textAlign: 'center',
-                  marginTop: '0.85rem',
-                  marginBottom: 0
-                }}
-              >
-                ⚡ No backend or database required — opens directly in your WhatsApp app or web.
-              </p>
+              <div style={{ marginTop: '1rem', padding: '10px 14px', background: 'rgba(29, 92, 240, 0.06)', borderRadius: '8px', border: '1px solid rgba(29, 92, 240, 0.2)', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1d5cf0' }}>
+                  ⚡ We will contact you within {responseTime}.
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                  Saved to database and opens directly in WhatsApp for instant verification.
+                </div>
+              </div>
             </form>
           </div>
         </div>

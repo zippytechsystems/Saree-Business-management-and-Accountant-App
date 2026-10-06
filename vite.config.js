@@ -1,8 +1,20 @@
+process.env.NODE_ENV = 'production';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ mode }) => {
+  process.env.NODE_ENV = 'production';
+  return {
+  plugins: [
+    react(),
+    visualizer({
+      filename: 'dist/stats.html',
+      gzipSize: true,
+      brotliSize: true,
+      open: false,
+    }),
+  ],
   build: {
     target: 'es2020',
     cssCodeSplit: true,
@@ -10,15 +22,17 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'vendor-react';
-            }
-            if (id.includes('lucide-react')) {
+          const normalized = id.replace(/\\/g, '/');
+          if (normalized.includes('node_modules')) {
+            if (normalized.includes('lucide-react')) {
               return 'vendor-icons';
             }
-            if (id.includes('@supabase')) {
-              return 'vendor-supabase';
+            if (
+              normalized.includes('/react/') ||
+              normalized.includes('/react-dom/') ||
+              normalized.includes('/scheduler/')
+            ) {
+              return 'vendor-react';
             }
             return 'vendor-other';
           }
@@ -30,6 +44,9 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    watch: {
+      ignored: ['**/staging_deploy/**', '**/data/**', '**/*.zip', '**/dist/**'],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
@@ -37,4 +54,5 @@ export default defineConfig({
       },
     },
   },
+};
 });

@@ -17,6 +17,8 @@ import {
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
 import Toast from '../components/common/Toast';
+import Button from '../components/common/Button';
+import PageTransition from '../components/common/PageTransition';
 import { formatCurrency, formatDate, getTodayDateString, getCurrentMonthString } from '../utils/formatters';
 
 const APPROVED_EXPENSE_CATEGORIES = [
@@ -253,10 +255,9 @@ export default function AccountantScreen() {
               Verified financial audit ledgers and operational records
             </p>
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={loadLedgerData} title="Refresh ledgers">
-            <RotateCw size={15} />
-            <span>Refresh</span>
-          </button>
+          <Button variant="secondary" size="sm" onClick={loadLedgerData} icon={RotateCw} title="Refresh ledgers">
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -317,13 +318,14 @@ export default function AccountantScreen() {
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           />
-          <button
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setSelectedMonth('')}
             title="View all recorded history"
           >
             All Time
-          </button>
+          </Button>
         </div>
 
         {activeLedger === 'expenses' && (
@@ -349,6 +351,7 @@ export default function AccountantScreen() {
       {/* ==================================================== */}
       {/* A. DAILY SALES LEDGER */}
       {/* ==================================================== */}
+      <PageTransition activeKey={activeLedger}>
       {activeLedger === 'sales' && (
         <div>
           <div className="kpi-grid kpi-grid-2">
@@ -400,10 +403,9 @@ export default function AccountantScreen() {
                         {formatCurrency(item.total_sales_amount)}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditSales(item)}>
-                          <Edit2 size={13} />
-                          <span>Edit</span>
-                        </button>
+                        <Button variant="secondary" size="sm" onClick={() => handleOpenEditSales(item)} icon={Edit2}>
+                          Edit
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -476,22 +478,22 @@ export default function AccountantScreen() {
                         {formatCurrency(item.amount)}
                       </td>
                       <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button
-                          className="btn-ghost"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleOpenEditExpense(item)}
                           title="Edit expense"
+                          icon={Edit2}
                           style={{ padding: '6px', marginRight: '4px' }}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          className="btn-ghost"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDeletingExpense(item)}
                           title="Delete expense"
+                          icon={Trash2}
                           style={{ padding: '6px', color: '#fb7185' }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        />
                       </td>
                     </tr>
                   ))}
@@ -648,22 +650,22 @@ export default function AccountantScreen() {
                         {formatCurrency(item.amount)}
                       </td>
                       <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button
-                          className="btn-ghost"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleOpenEditExpense(item)}
                           title="Edit supplier payout"
+                          icon={Edit2}
                           style={{ padding: '6px', marginRight: '4px' }}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          className="btn-ghost"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDeletingExpense(item)}
                           title="Delete supplier payout"
+                          icon={Trash2}
                           style={{ padding: '6px', color: '#fb7185' }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        />
                       </td>
                     </tr>
                   ))}
@@ -673,6 +675,7 @@ export default function AccountantScreen() {
           </div>
         </div>
       )}
+      </PageTransition>
 
       {/* MODAL: Edit Expense / Supplier Payment */}
       <Modal
@@ -731,17 +734,17 @@ export default function AccountantScreen() {
           {modalError && <div className="form-error" style={{ marginBottom: '12px' }}>{modalError}</div>}
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setEditingExpense(null)}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Updating...' : 'Save Changes'}
-            </button>
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+              Save Changes
+            </Button>
           </div>
         </form>
       </Modal>
@@ -773,17 +776,17 @@ export default function AccountantScreen() {
           {modalError && <div className="form-error" style={{ marginBottom: '12px' }}>{modalError}</div>}
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setEditingSales(null)}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-success" disabled={isSubmitting}>
-              {isSubmitting ? 'Updating...' : 'Update Sales Record'}
-            </button>
+            </Button>
+            <Button type="submit" variant="success" isLoading={isSubmitting}>
+              Update Sales Record
+            </Button>
           </div>
         </form>
       </Modal>
@@ -814,22 +817,22 @@ export default function AccountantScreen() {
             </div>
           </div>
           <div className="modal-footer" style={{ padding: '16px 0 0 0', marginTop: '16px' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setDeletingExpense(null)}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-danger"
+              variant="danger"
               onClick={handleConfirmDeleteExpense}
-              disabled={isSubmitting}
+              isLoading={isSubmitting}
             >
-              {isSubmitting ? 'Deleting...' : 'Delete'}
-            </button>
+              Delete
+            </Button>
           </div>
         </div>
       </Modal>

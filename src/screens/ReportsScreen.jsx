@@ -16,6 +16,8 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import PageTransition from '../components/common/PageTransition';
 
 export default function ReportsScreen() {
   const getInitialMonth = () => {
@@ -270,47 +272,25 @@ export default function ReportsScreen() {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="primary"
             onClick={() => handleDownload('csv')}
             disabled={downloading || loading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '0.65rem 1.2rem',
-              fontWeight: 600,
-              backgroundColor: 'var(--accent-blue)',
-              color: '#ffffff',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              cursor: 'pointer',
-            }}
+            isLoading={downloading}
+            icon={Download}
           >
-            <Download size={18} />
-            <span>Download CSV (Excel)</span>
-          </button>
+            Download CSV (Excel)
+          </Button>
 
-          <button
-            className="btn btn-secondary"
+          <Button
+            variant="secondary"
             onClick={() => handleDownload('json')}
             disabled={downloading || loading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '0.65rem 1.1rem',
-              fontWeight: 600,
-              backgroundColor: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-color)',
-              cursor: 'pointer',
-            }}
+            isLoading={downloading}
+            icon={FileSpreadsheet}
           >
-            <FileSpreadsheet size={18} />
-            <span>Download JSON</span>
-          </button>
+            Download JSON
+          </Button>
         </div>
       </div>
 
@@ -336,18 +316,21 @@ export default function ReportsScreen() {
         }}>
           <AlertCircle size={20} />
           <div>{error}</div>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => fetchMonthlyReport(selectedMonth)}
-            style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #fb7185', color: '#fb7185', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}
+            style={{ marginLeft: 'auto', borderColor: '#fb7185', color: '#fb7185' }}
           >
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Report Content Preview */}
       {!loading && !error && reportData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <PageTransition activeKey={selectedMonth}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* SECTION 1: EXECUTIVE FINANCIAL CALCULATIONS */}
           <section>
             <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -620,6 +603,7 @@ export default function ReportsScreen() {
             </div>
           </section>
         </div>
+        </PageTransition>
       )}
     </div>
   );

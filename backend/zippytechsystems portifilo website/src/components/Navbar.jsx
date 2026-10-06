@@ -3,13 +3,21 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Sun, Moon, Phone, MessageCircle } from 'lucide-react';
 import { content, buildWhatsAppUrl } from '../data/content';
 import { useTheme } from '../context/ThemeContext';
+import { useData } from '../context/DataContext';
 
 export default function Navbar({ onOpenQuoteModal }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { settingsData } = useData() || {};
   const location = useLocation();
   const navigate = useNavigate();
+
+  const rawPhone = settingsData?.phone || content.founder.phone || '6302690251';
+  const cleanPhone = String(rawPhone).replace(/[^0-9]/g, '').replace(/^91/, '');
+  const activePhoneFormatted = cleanPhone.length === 10
+    ? `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}`
+    : (settingsData?.phoneFormatted || content.founder.phoneFormatted || `+91 ${cleanPhone}`);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -176,6 +184,26 @@ export default function Navbar({ onOpenQuoteModal }) {
               </a>
             );
           })}
+
+          {/* Subtle Admin Link (far right, visually minor, muted grey, 12-13px) */}
+          <Link
+            to="/admin"
+            style={{
+              fontSize: '13px',
+              color: '#94a3b8',
+              textDecoration: 'none',
+              fontWeight: 500,
+              padding: '2px 4px',
+              marginLeft: '0.25rem',
+              transition: 'color var(--transition-fast)',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={(e) => (e.target.style.color = 'var(--text-main)')}
+            onMouseLeave={(e) => (e.target.style.color = '#94a3b8')}
+            title="Admin Portal"
+          >
+            Admin
+          </Link>
         </nav>
 
         {/* Right Action Cluster */}
@@ -188,7 +216,7 @@ export default function Navbar({ onOpenQuoteModal }) {
         >
           {/* Quick Call Link (Desktop/Tablet) */}
           <a
-            href={`tel:${content.founder.phone}`}
+            href={`tel:+91${cleanPhone}`}
             className="btn btn-outline"
             style={{
               display: 'none',
@@ -199,7 +227,7 @@ export default function Navbar({ onOpenQuoteModal }) {
             title="Call Lingaswamy"
           >
             <Phone size={14} color="#12a150" />
-            <span>{content.founder.phone}</span>
+            <span>{activePhoneFormatted}</span>
           </a>
 
           {/* Theme Toggle Button */}
@@ -312,13 +340,32 @@ export default function Navbar({ onOpenQuoteModal }) {
             </a>
 
             <a
-              href={`tel:${content.founder.phone}`}
+              href={`tel:+91${cleanPhone}`}
               className="btn btn-outline"
               style={{ width: '100%' }}
             >
               <Phone size={15} color="#12a150" />
-              <span>Call Lingaswamy: {content.founder.phoneFormatted}</span>
+              <span>Call Lingaswamy: {activePhoneFormatted}</span>
             </a>
+
+            {/* Subtle mobile Admin link at bottom */}
+            <div style={{ textAlign: 'center', paddingTop: '0.4rem' }}>
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  fontSize: '12px',
+                  color: '#94a3b8',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                  display: 'inline-block',
+                  padding: '4px 8px',
+                  opacity: 0.8
+                }}
+              >
+                Admin
+              </Link>
+            </div>
           </div>
         </div>
       )}

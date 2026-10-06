@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import Button from '../components/common/Button';
 
 export default function AuthScreen({ onAuthSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -134,15 +135,15 @@ export default function AuthScreen({ onAuthSuccess }) {
       <div className="auth-header-banner">
         <div className="auth-header-pill">
           <Sparkles size={14} />
-          <span>SMART BUSINESS ERP</span>
+          <span>SAREE BUSINESS ERP</span>
         </div>
 
         <h1 className="auth-header-title">
-          Save Your Accountant Salaries &amp; Easily Maintain Your Business ERP
+          Saree Business Management &amp; Accountant App
         </h1>
 
         <p className="auth-header-subtitle">
-          అకౌంటెంట్ జీతం ఆదా చేసుకోండి • మీ షాప్ లెక్కలు &amp; స్టాక్ మీరే సులువుగా నిర్వహించుకోండి
+          అకౌంటెంట్ జీతం ఆదా చేసుకోండి • మీ చీరల వ్యాపార లెక్కలు &amp; స్టాక్ మీరే సులువుగా నిర్వహించుకోండి
         </p>
 
         <div className="auth-highlights-row">
@@ -305,18 +306,16 @@ export default function AuthScreen({ onAuthSuccess }) {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
-            style={{
-              ...styles.submitBtn,
-              opacity: loading ? 0.7 : 1,
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-            disabled={loading}
+            variant="primary"
+            size="lg"
+            isLoading={loading}
+            icon={!loading ? ArrowRight : undefined}
+            style={{ width: '100%', marginTop: '10px' }}
           >
-            <span>{loading ? 'Please wait...' : isSignUp ? 'CREATE ACCOUNT' : 'LOGIN'}</span>
-            {!loading && <ArrowRight size={18} />}
-          </button>
+            {isSignUp ? 'CREATE ACCOUNT' : 'LOGIN'}
+          </Button>
         </form>
 
         <div style={styles.footer}>

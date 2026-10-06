@@ -18,6 +18,7 @@ import {
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
 import Toast from '../components/common/Toast';
+import Button from '../components/common/Button';
 import { formatCurrency, formatDate, getTodayDateString } from '../utils/formatters';
 
 export default function LendersScreen() {
@@ -254,14 +255,23 @@ export default function LendersScreen() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary btn-sm" onClick={loadLenderData} title="Refresh lender data">
-              <RotateCw size={15} />
-              <span>Refresh</span>
-            </button>
-            <button className="btn btn-primary" onClick={openAddModal}>
-              <UserPlus size={18} />
-              <span>Add Lender</span>
-            </button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={loadLenderData}
+              isLoading={loading}
+              title="Refresh lender data"
+              icon={RotateCw}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              onClick={openAddModal}
+              icon={UserPlus}
+            >
+              Add Lender
+            </Button>
           </div>
         </div>
       </div>
@@ -322,10 +332,9 @@ export default function LendersScreen() {
           <div className="empty-state-text">
             {searchQuery ? 'No lenders match your search.' : 'No lender accounts registered yet.'}
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={openAddModal} style={{ marginTop: '12px' }}>
-            <UserPlus size={14} />
-            <span>Add Lender Account</span>
-          </button>
+          <Button variant="secondary" size="sm" onClick={openAddModal} icon={UserPlus} style={{ marginTop: '12px' }}>
+            Add Lender Account
+          </Button>
         </div>
       ) : (
         <div className="lender-card-grid">
@@ -395,30 +404,31 @@ export default function LendersScreen() {
 
                 {/* Card Action Buttons */}
                 <div className="lender-actions">
-                  <button
-                    className="btn-ghost"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => openEditModal(lender)}
                     title="Edit lender details"
+                    icon={Edit2}
                     style={{ padding: '8px' }}
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    className="btn-ghost"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setDeletingLender(lender)}
                     title="Delete lender account"
+                    icon={Trash2}
                     style={{ padding: '8px', color: '#fb7185' }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  />
                   {!isSettled && (
-                    <button
-                      className="btn btn-primary btn-sm"
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={() => openRepaymentModal(lender)}
+                      icon={Wallet}
                     >
-                      <Wallet size={14} />
-                      <span>Record Payment</span>
-                    </button>
+                      Record Payment
+                    </Button>
                   )}
                 </div>
               </div>
@@ -525,9 +535,9 @@ export default function LendersScreen() {
           {modalError && <div className="form-error" style={{ marginBottom: '12px' }}>{modalError}</div>}
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => {
                 setIsAddModalOpen(false);
                 setEditingLender(null);
@@ -535,10 +545,15 @@ export default function LendersScreen() {
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : editingLender ? 'Update Lender' : 'Save Lender'}
-            </button>
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmitting}
+              loadingText="Saving..."
+            >
+              {editingLender ? 'Update Lender' : 'Save Lender'}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -606,17 +621,22 @@ export default function LendersScreen() {
           {modalError && <div className="form-error" style={{ marginBottom: '12px' }}>{modalError}</div>}
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setPayingLender(null)}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button type="submit" className="btn btn-success" disabled={isSubmitting}>
-              {isSubmitting ? 'Recording...' : 'Record Payment'}
-            </button>
+            </Button>
+            <Button
+              type="submit"
+              variant="success"
+              isLoading={isSubmitting}
+              loadingText="Recording..."
+            >
+              Record Payment
+            </Button>
           </div>
         </form>
       </Modal>
@@ -646,22 +666,23 @@ export default function LendersScreen() {
           </p>
 
           <div className="modal-footer" style={{ padding: '16px 0 0 0', marginTop: '16px' }}>
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setDeletingLender(null)}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn btn-danger"
+              variant="danger"
               onClick={handleConfirmDelete}
-              disabled={isSubmitting}
+              isLoading={isSubmitting}
+              loadingText="Deleting..."
             >
-              {isSubmitting ? 'Deleting...' : 'Delete Lender'}
-            </button>
+              Delete Lender
+            </Button>
           </div>
         </div>
       </Modal>

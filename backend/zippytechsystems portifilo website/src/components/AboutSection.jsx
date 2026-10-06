@@ -1,11 +1,23 @@
 import React from 'react';
 import { MessageCircle, Phone, Award, Target, UserCheck, Shield } from 'lucide-react';
 import { content, buildWhatsAppUrl } from '../data/content';
+import { useData } from '../context/DataContext';
 
 export default function AboutSection() {
-  const founderWhatsApp = buildWhatsAppUrl(
-    'Hi Lingaswamy, I read about ZippyTechSystems and would like to consult on my business project.'
-  );
+  const { settingsData } = useData() || {};
+  const founderName = settingsData?.founderName || content.founder.name || 'Lingaswamy Maddeboina';
+  const rawPhone = settingsData?.phone || content.founder.phone || '6302690251';
+  const cleanPhone = String(rawPhone).replace(/[^0-9]/g, '').replace(/^91/, '');
+  const phoneFormatted = cleanPhone.length === 10
+    ? `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}`
+    : `+91 ${cleanPhone}`;
+
+  const rawWa = settingsData?.whatsappNumber || content.founder.whatsappNumber || '6302690251';
+  const cleanWa = String(rawWa).replace(/[^0-9]/g, '');
+  const whatsappNumber = cleanWa.startsWith('91') ? cleanWa : `91${cleanWa}`;
+  const founderWhatsApp = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+    `Hi ${founderName.split(' ')[0]}, I read about ZippyTechSystems and would like to consult on my business project.`
+  )}`;
 
   return (
     <section id="about" style={{ padding: '5rem 0', background: 'var(--bg-surface)' }} aria-labelledby="about-heading">
@@ -108,7 +120,7 @@ export default function AboutSection() {
                     FOUNDER &amp; LEAD ARCHITECT
                   </span>
                   <h3 style={{ fontSize: '1.5rem', margin: 0, fontWeight: 800 }}>
-                    {content.founder.name}
+                    {founderName}
                   </h3>
                   <span style={{ fontSize: '0.88rem', color: 'var(--text-dim)' }}>
                     {content.founder.role}
@@ -117,7 +129,7 @@ export default function AboutSection() {
               </div>
 
               <p style={{ color: 'var(--text-body)', lineHeight: 1.6, marginBottom: '1.5rem', fontSize: '0.98rem' }}>
-                "{content.founder.bio}"
+                "{settingsData?.aboutText?.trim() || content.founder.bio}"
               </p>
 
               {/* Direct Highlights */}
@@ -151,16 +163,16 @@ export default function AboutSection() {
                 style={{ flex: '1 0 160px', padding: '0.7rem 1rem', fontSize: '0.9rem' }}
               >
                 <MessageCircle size={16} />
-                <span>WhatsApp Lingaswamy</span>
+                <span>WhatsApp {founderName.split(' ')[0]}</span>
               </a>
 
               <a
-                href={`tel:${content.founder.phone}`}
+                href={`tel:+91${cleanPhone}`}
                 className="btn btn-outline"
                 style={{ flex: '1 0 140px', padding: '0.7rem 1rem', fontSize: '0.9rem' }}
               >
                 <Phone size={15} color="#12a150" />
-                <span>Call {content.founder.phone}</span>
+                <span>Call {phoneFormatted}</span>
               </a>
             </div>
           </div>

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/layout/ErrorBoundary';
+import { ThemeProvider } from './context/ThemeContext';
+import PageTransition from './components/common/PageTransition';
+import Skeleton from './components/common/Skeleton';
 
 // Lazy-loaded Auth & Setup Screens
 const AuthScreen = lazy(() => import('./screens/AuthScreen'));
@@ -16,31 +19,10 @@ const LendersScreen = lazy(() => import('./screens/LendersScreen'));
 const CalculationsScreen = lazy(() => import('./screens/CalculationsScreen'));
 const ReportsScreen = lazy(() => import('./screens/ReportsScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
+import { useGlobalRipple } from './hooks/useGlobalRipple';
 
-function ScreenSkeleton() {
-  return (
-    <div className="screen-skeleton-container" aria-busy="true" aria-label="Loading screen">
-      <div className="skeleton-line skeleton-title" />
-      <div className="skeleton-line skeleton-subtitle" />
-      <div className="kpi-grid kpi-grid-3" style={{ marginTop: '24px' }}>
-        <div className="ui-card skeleton-card">
-          <div className="skeleton-line skeleton-label" />
-          <div className="skeleton-line skeleton-value" />
-        </div>
-        <div className="ui-card skeleton-card">
-          <div className="skeleton-line skeleton-label" />
-          <div className="skeleton-line skeleton-value" />
-        </div>
-        <div className="ui-card skeleton-card">
-          <div className="skeleton-line skeleton-label" />
-          <div className="skeleton-line skeleton-value" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function App() {
+function AppInner() {
+  useGlobalRipple();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [authState, setAuthState] = useState({
     loading: true,
@@ -108,7 +90,7 @@ export default function App() {
         loading: false,
         isAuthenticated: true,
         user: { id: 1, username: 'owner' },
-        businessProfile: { business_name: 'Owner Business', business_nickname: 'Owner', business_address: 'Main Store' },
+        businessProfile: { business_name: 'Saree Business ERP', business_nickname: 'Saree Business', business_address: 'Main Store' },
         needsProfile: false,
       });
     }
@@ -120,8 +102,8 @@ export default function App() {
 
   const handleAuthSuccess = (data) => {
     const profile = data.business_profile || {
-      business_name: `${data.user?.username || 'Owner'} Business`,
-      business_nickname: data.user?.username || 'Owner',
+      business_name: `${data.user?.username || 'Saree'} Business ERP`,
+      business_nickname: data.user?.username || 'Saree Shop',
       business_address: 'Main Store',
     };
 
@@ -205,7 +187,7 @@ export default function App() {
   if (!authState.isAuthenticated) {
     return (
       <ErrorBoundary>
-        <Suspense fallback={<ScreenSkeleton />}>
+        <Suspense fallback={<Skeleton.Screen />}>
           <AuthScreen onAuthSuccess={handleAuthSuccess} />
         </Suspense>
       </ErrorBoundary>
@@ -216,7 +198,7 @@ export default function App() {
   if (authState.needsProfile) {
     return (
       <ErrorBoundary>
-        <Suspense fallback={<ScreenSkeleton />}>
+        <Suspense fallback={<Skeleton.Screen />}>
           <BusinessProfileScreen
             onProfileComplete={handleProfileComplete}
             initialProfile={authState.businessProfile}
@@ -268,11 +250,21 @@ export default function App() {
         user={authState.user}
         onLogout={handleLogout}
       >
-        <Suspense fallback={<ScreenSkeleton />}>
-          {renderActiveScreen()}
+        <Suspense fallback={<Skeleton.Screen />}>
+          <PageTransition activeKey={activeTab}>
+            {renderActiveScreen()}
+          </PageTransition>
         </Suspense>
       </Layout>
     </ErrorBoundary>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
   );
 }
 
@@ -283,22 +275,24 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-    color: '#0f172a',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
     fontFamily: 'Inter, system-ui, sans-serif',
     gap: '16px',
+    transition: 'background-color 0.2s ease, color 0.2s ease',
   },
   spinner: {
     width: '36px',
     height: '36px',
     borderRadius: '50%',
-    border: '3px solid #e2e8f0',
-    borderTopColor: '#2563eb',
+    border: '3px solid var(--border-color)',
+    borderTopColor: 'var(--accent-blue)',
     animation: 'spin 1s linear infinite',
   },
   loadingText: {
     fontSize: '14px',
-    color: '#64748b',
+    color: 'var(--text-muted)',
     fontWeight: '500',
   },
 };
+

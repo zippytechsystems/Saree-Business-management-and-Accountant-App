@@ -3,17 +3,13 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
 
-const RAILWAY_PRODUCTION_BACKEND = 'https://saree-business-backend-production-b59f.up.railway.app';
-
 const API_BASE = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/+$/, '')
-  : (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app')
-      ? RAILWAY_PRODUCTION_BACKEND
-      : '');
+  : '';
 
 // Automatically prepend backend URL (if configured) and attach Bearer token to all /api/ requests
 const nativeFetch = window.fetch;
-window.fetch = (url, options = {}) => {
+window.fetch = async (url, options = {}) => {
   let targetUrl = url;
   if (typeof url === 'string' && url.startsWith('/api') && API_BASE) {
     if (API_BASE.endsWith('/api')) {
@@ -47,9 +43,19 @@ window.fetch = (url, options = {}) => {
         };
       }
     }
-    return nativeFetch(targetUrl, opts);
+    const res = await nativeFetch(targetUrl, opts);
+    if (res.status === 401 || res.headers.get('x-session-status') === 'expired') {
+      sessionStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_token');
+    }
+    return res;
   }
-  return nativeFetch(targetUrl, options);
+  const res = await nativeFetch(targetUrl, options);
+  if (res.status === 401) {
+    sessionStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_token');
+  }
+  return res;
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(
