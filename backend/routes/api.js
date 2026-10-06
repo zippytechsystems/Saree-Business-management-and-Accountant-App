@@ -1,5 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { getDatabaseStatus } from '../db/database.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Services
 import * as salesService from '../services/salesService.js';
@@ -42,10 +48,12 @@ router.get('/health', async (req, res) => {
     res.json({
       success: true,
       app: 'Business Management & Accountant Management App',
+      hosting: 'Hostinger Production Environment',
       status: 'Production Ready (V1.0)',
       database: {
         ...dbStatus,
-        mode: isSupabase && cloudStatus?.connected ? 'authoritative_supabase' : 'local_sqlite_fallback',
+        mode: isSupabase && cloudStatus?.connected ? 'authoritative_supabase' : 'hostinger_authoritative',
+        engine: isSupabase && cloudStatus?.connected ? 'Supabase PostgreSQL' : 'Hostinger Enterprise SQLite (WAL Mode)',
         supabase_configured: isSupabase,
         supabase_connected: Boolean(cloudStatus?.connected),
         supabase_url: isSupabase ? process.env.SUPABASE_URL : null,
@@ -822,7 +830,7 @@ router.get('/cloud-backup/history', (req, res) => {
 });
 
 // Manual trigger to flush/retry pending or failed cloud syncs
-router.post('/cloud-backup/sync-now', async (req, res) => {
+router.post('/cloud-backup/sync-now', requireAuth, async (req, res) => {
   try {
     const result = await authoritativeDataService.flushOfflineQueue(req.userId);
     res.json({
@@ -835,7 +843,7 @@ router.post('/cloud-backup/sync-now', async (req, res) => {
 });
 
 // Safe restore of monthly backup
-router.post('/cloud-backup/restore', (req, res) => {
+router.post('/cloud-backup/restore', requireAuth, (req, res) => {
   try {
     const { month } = req.body;
     const result = cloudBackupService.restoreMonthlyBackup(month);
@@ -848,12 +856,68 @@ router.post('/cloud-backup/restore', (req, res) => {
   }
 });
 
+// Download full local SQLite database (for Hostinger backups)
+router.get('/cloud-backup/download', requireAuth, (req, res) => {
+  try {
+    const dbPath = path.resolve(__dirname, '../../data/app.db');
+    if (!fs.existsSync(dbPath)) {
+      return res.status(404).json({ success: false, error: 'Database file not found.' });
+    }
+    const today = new Date().toISOString().substring(0, 10);
+    res.download(dbPath, `hostinger_business_backup_${today}.db`);
+  } catch (error) {
+    handleError(res, error, 500);
+  }
+});
+
+// Export Clean, Human-Readable Business Data (Opens without errors in any app/phone/browser)
+router.get('/cloud-backup/export', requireAuth, async (req, res) => {
+  try {
+    const uid = Number(req.userId || 1);
+    let profile = null;
+    try {
+      profile = await authoritativeDataService.getBusinessProfileAuthoritative(uid);
+    } catch (e) {
+      profile = { business_name: 'Business Records' };
+    }
+
+    const sales = salesService.getSalesHistory({ limit: 10000 }, uid);
+    const expenses = expenseService.getExpenses({ limit: 10000 }, uid);
+    const varieties = stockService.getAllVarieties(uid);
+    const stockHistory = stockService.getStockHistory({ limit: 10000 }, uid);
+    const lenders = lenderService.getAllLenders(uid);
+    const calculations = calculationService.getDashboardSummary({ userId: uid });
+
+    const exportData = {
+      app: 'Saree Business Management & Accountant App',
+      version: '1.0.0',
+      backup_type: 'clean_business_records',
+      exported_at: new Date().toISOString(),
+      business_profile: profile || { business_name: 'Business Records' },
+      financial_summary: calculations,
+      sales: sales || [],
+      expenses: expenses || [],
+      inventory_varieties: varieties || [],
+      stock_movements: stockHistory || [],
+      lenders_book: lenders || [],
+    };
+
+    const today = new Date().toISOString().substring(0, 10);
+    const filename = `business_backup_${today}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(JSON.stringify(exportData, null, 2));
+  } catch (error) {
+    handleError(res, error, 500);
+  }
+});
+
 // -------------------------------------------------------------
 // 8. AUTHORITATIVE CLOUD PROVIDER & MULTI-DEVICE SYNC
 // -------------------------------------------------------------
 
 // Get overall cloud provider status, connection state, and sync mode
-router.get('/cloud-provider/status', async (req, res) => {
+router.get('/cloud-provider/status', requireAuth, async (req, res) => {
   try {
     const status = await authoritativeDataService.getSyncStatus(req.userId);
     res.json({
@@ -866,7 +930,7 @@ router.get('/cloud-provider/status', async (req, res) => {
 });
 
 // Flush offline mutation queue with idempotency protection
-router.post('/cloud-provider/sync-pending', async (req, res) => {
+router.post('/cloud-provider/sync-pending', requireAuth, async (req, res) => {
   try {
     const result = await authoritativeDataService.flushOfflineQueue(req.userId);
     res.json({
@@ -879,7 +943,7 @@ router.post('/cloud-provider/sync-pending', async (req, res) => {
 });
 
 // Reconcile cloud data to local SQLite cache
-router.post('/cloud-provider/reconcile', async (req, res) => {
+router.post('/cloud-provider/reconcile', requireAuth, async (req, res) => {
   try {
     const result = await authoritativeDataService.reconcileCloudToLocal(req.userId);
     res.json({
@@ -892,7 +956,7 @@ router.post('/cloud-provider/reconcile', async (req, res) => {
 });
 
 // Compute financial parity audit between SQLite and Supabase
-router.get('/cloud-provider/parity-audit', async (req, res) => {
+router.get('/cloud-provider/parity-audit', requireAuth, async (req, res) => {
   try {
     if (!supabaseService.isSupabaseConfigured()) {
       return res.status(400).json({

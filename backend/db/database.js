@@ -15,9 +15,13 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'app.db');
 const db = new DatabaseSync(dbPath);
 
-// Enable WAL mode and foreign key enforcement
+// Enable WAL mode, foreign key enforcement, and ultra-high-speed memory caching
 db.exec('PRAGMA journal_mode = WAL;');
 db.exec('PRAGMA foreign_keys = ON;');
+db.exec('PRAGMA synchronous = NORMAL;');
+db.exec('PRAGMA cache_size = -64000;'); // 64MB Cache in RAM
+db.exec('PRAGMA temp_store = MEMORY;');
+db.exec('PRAGMA mmap_size = 268435456;'); // 256MB memory-mapped I/O
 
 import { runAuthMigration } from './migration_auth.js';
 

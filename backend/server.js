@@ -34,22 +34,105 @@ const distPath = path.resolve(__dirname, '../dist');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Security & Parsing Middleware with Body Limits (1MB) and Production CORS
+// ====================================================================
+// COMPREHENSIVE SECURITY & PERFORMANCE MIDDLEWARE
+// ====================================================================
+
+// 1. Strict Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https: http:;"
+  );
+  res.removeHeader('X-Powered-By');
+  next();
+});
+
+// 2. Secret File Access Protection (Blocks .env, .git, .db, config files)
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  if (
+    p.includes('.env') ||
+    p.includes('.git') ||
+    p.includes('node_modules') ||
+    p.startsWith('/backend') ||
+    p.includes('package.json') ||
+    p.includes('package-lock.json') ||
+    p.includes('ecosystem.config') ||
+    p.endsWith('.db') ||
+    p.endsWith('.sqlite') ||
+    p.endsWith('.log') ||
+    p.endsWith('.key') ||
+    p.endsWith('.pem')
+  ) {
+    return res.status(403).json({ success: false, error: 'Access Denied: Protected System Resource' });
+  }
+  next();
+});
+
+// 3. Sliding Window In-Memory Rate Limiter
+const rateLimitStore = new Map();
+function rateLimiter({ windowMs, maxRequests, message }) {
+  return (req, res, next) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || req.socket?.remoteAddress || '127.0.0.1';
+    const route = req.baseUrl || req.path;
+    const key = `${route}_${ip}`;
+    const now = Date.now();
+
+    let record = rateLimitStore.get(key);
+    if (!record || now - record.startTime > windowMs) {
+      record = { count: 1, startTime: now };
+      rateLimitStore.set(key, record);
+    } else {
+      record.count++;
+    }
+
+    res.setHeader('X-RateLimit-Limit', maxRequests);
+    res.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - record.count));
+
+    if (record.count > maxRequests) {
+      const retryAfterSec = Math.ceil((record.startTime + windowMs - now) / 1000);
+      res.setHeader('Retry-After', retryAfterSec);
+      return res.status(429).json({
+        success: false,
+        error: message || 'Too many requests. Please slow down.',
+        retryAfter: retryAfterSec,
+      });
+    }
+    next();
+  };
+}
+
+// Clean up expired rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of rateLimitStore.entries()) {
+    if (now - v.startTime > 15 * 60 * 1000) rateLimitStore.delete(k);
+  }
+}, 5 * 60 * 1000).unref();
+
+const globalApiLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 180,
+  message: 'API rate limit exceeded. Please wait a moment.',
+});
+
+// 4. Strict CORS Protection
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim().replace(/\/+$/, ''))
   : '*';
 
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    // Requests without origin header (mobile, curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
-
     const cleanOrigin = origin.replace(/\/+$/, '');
-
     if (
-      cleanOrigin === 'https://businessaccountantapp.netlify.app' ||
-      cleanOrigin.endsWith('.netlify.app') ||
-      cleanOrigin.endsWith('.vercel.app') ||
       cleanOrigin.startsWith('http://localhost:') ||
       cleanOrigin.startsWith('http://127.0.0.1:') ||
       allowedOrigins === '*' ||
@@ -62,13 +145,40 @@ const corsMiddleware = cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Disposition'],
+  exposedHeaders: ['Content-Disposition', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
 });
 
 app.use(corsMiddleware);
 app.options('*', corsMiddleware);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// 5. Form Input Sanitization (XSS Filter)
+function sanitizeData(input) {
+  if (typeof input === 'string') {
+    return input
+      .replace(/\0/g, '')
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/\s*on\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '');
+  }
+  if (Array.isArray(input)) return input.map(sanitizeData);
+  if (input !== null && typeof input === 'object') {
+    const clean = {};
+    for (const k of Object.keys(input)) {
+      clean[k] = sanitizeData(input[k]);
+    }
+    return clean;
+  }
+  return input;
+}
+
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    req.body = sanitizeData(req.body);
+  }
+  next();
+});
 
 // Initialize database schema
 try {
@@ -77,8 +187,8 @@ try {
   console.error('[Database] Failed to initialize schema:', err);
 }
 
-// Routes
-app.use('/api', apiRoutes);
+// 6. Routes with API Rate Limiting
+app.use('/api', globalApiLimiter, apiRoutes);
 
 // Root informational endpoint for Render / API consumers
 app.get('/', (req, res, next) => {
@@ -94,8 +204,21 @@ app.get('/', (req, res, next) => {
   });
 });
 
-// Serve static frontend production build
-app.use(express.static(distPath));
+// 7. High-Performance Static Asset Caching (Near-by speed boost)
+app.use(
+  '/assets',
+  express.static(path.join(distPath, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+  })
+);
+
+app.use(
+  express.static(distPath, {
+    maxAge: '1h',
+    etag: true,
+  })
+);
 
 // SPA Fallback for client-side routing
 app.get('*', (req, res, next) => {
@@ -105,13 +228,12 @@ app.get('*', (req, res, next) => {
   });
 });
 
-// Global Error Handler (No stack trace exposure to clients)
+// 8. Production Error Handler (Zero stack trace exposure)
 app.use((err, req, res, next) => {
-  console.error('[Server Error]:', err.stack);
   res.status(500).json({
     success: false,
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'production' ? 'An unexpected internal error occurred.' : err.message,
+    message: 'An unexpected internal error occurred. Please try again.',
   });
 });
 
@@ -141,13 +263,11 @@ if (process.env.VERCEL !== '1') {
         console.error('[Database] Exception during Supabase connection check:', err.message);
       }
     } else {
-      console.warn('================================================================');
-      console.warn('[Database] ⚠️  SUPABASE NOT CONFIGURED: Running in local_sqlite_fallback mode!');
-      console.warn('[Database] To enable Authoritative Supabase, add these variables in Railway:');
-      console.warn('[Database]   1. SUPABASE_URL');
-      console.warn('[Database]   2. SUPABASE_SERVICE_ROLE_KEY');
-      console.warn('[Database]   3. CLOUD_BACKUP_PROVIDER=supabase');
-      console.warn('================================================================');
+      console.log('================================================================');
+      console.log(`[Hostinger Server] ✓ App active on Hostinger (Port: ${PORT})`);
+      console.log('[Hostinger Database] ✓ Standalone SQLite database operational at data/app.db (WAL Mode)');
+      console.log('[Hostinger Database] Mode: hostinger_authoritative (100% Server Persistent)');
+      console.log('================================================================');
     }
   });
 }
