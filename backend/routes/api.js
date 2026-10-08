@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { getDatabaseStatus } from '../db/database.js';
+import * as mysql from '../db/mysql.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +18,7 @@ import * as reportService from '../services/reportService.js';
 import * as cloudBackupService from '../services/cloudBackupService.js';
 import * as authService from '../services/authService.js';
 import * as authoritativeDataService from '../services/authoritativeDataService.js';
-import * as mysqlService from '../services/mysqlService.js';
+import * as supabaseService from '../services/supabaseService.js';
 
 // Middleware
 import { authenticateOwner, requireAuth } from '../middleware/authMiddleware.js';
@@ -39,11 +40,18 @@ function handleError(res, error, defaultStatusCode = 400) {
 router.get('/health', async (req, res) => {
   try {
     const dbStatus = getDatabaseStatus();
-    const isMysql = mysqlService.isMysqlConfigured();
+    const isMySQL = mysql.isMySQLConfigured();
     let mysqlStatus = null;
-    if (isMysql) {
-      mysqlStatus = await mysqlService.testMysqlConnection();
+    if (isMySQL) {
+      mysqlStatus = await mysql.getMySQLStatus();
     }
+    const isSupabase = supabaseService.isSupabaseConfigured();
+    let cloudStatus = null;
+    if (isSupabase) {
+      cloudStatus = await supabaseService.testSupabaseConnection();
+    }
+
+    const isMySQLConnected = isMySQL && mysqlStatus?.status === 'connected';
 
     res.json({
       success: true,
@@ -52,11 +60,18 @@ router.get('/health', async (req, res) => {
       status: 'Production Ready (V1.0)',
       database: {
         ...dbStatus,
-        mode: isMysql && mysqlStatus?.connected ? 'hostinger_mysql' : 'hostinger_sqlite',
-        engine: isMysql && mysqlStatus?.connected ? 'Hostinger MySQL (InnoDB)' : 'Hostinger Enterprise SQLite (WAL Mode)',
-        mysql_configured: isMysql,
-        mysql_connected: Boolean(mysqlStatus?.connected),
-        mysql_database: isMysql ? mysqlStatus?.database : null,
+        mode: isMySQLConnected
+          ? 'hostinger_mysql_authoritative'
+          : (isSupabase && cloudStatus?.connected ? 'authoritative_supabase' : 'hostinger_authoritative'),
+        engine: isMySQLConnected
+          ? 'Hostinger MySQL Database (127.0.0.1:3306)'
+          : (isSupabase && cloudStatus?.connected ? 'Supabase PostgreSQL' : 'Hostinger Enterprise SQLite (WAL Mode)'),
+        mysql_configured: isMySQL,
+        mysql_connected: isMySQLConnected,
+        mysql_info: mysqlStatus,
+        supabase_configured: isSupabase,
+        supabase_connected: Boolean(cloudStatus?.connected),
+        supabase_url: isSupabase ? process.env.SUPABASE_URL : null,
       },
       timestamp: new Date().toISOString(),
     });
@@ -610,12 +625,7 @@ router.get('/lenders/:id', async (req, res) => {
 router.put('/lenders/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = lenderService.updateLender(id, { ...req.body, userId: req.userId });
-
-    // Sync to MySQL if configured
-    if (mysqlService.isMysqlConfigured()) {
-      mysqlService.createLender(req.userId, updated).catch(() => {});
-    }
+    const updated = await authoritativeDataService.updateLenderAuthoritative(id, req.body, req.userId);
 
     res.json({
       success: true,
@@ -656,7 +666,7 @@ router.post('/lenders/:id/repay', handleLenderPayment);
 router.delete('/lenders/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = lenderService.deleteLender(id, req.userId);
+    const result = await authoritativeDataService.deleteLenderAuthoritative(id, req.userId);
     res.json(result);
   } catch (error) {
     const status = error.message.includes('not found') ? 404 : 400;
