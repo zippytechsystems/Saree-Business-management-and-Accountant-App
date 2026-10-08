@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getClientsApi } from '../lib/api';
 
 export function useClients() {
@@ -20,21 +19,6 @@ export function useClients() {
 
   useEffect(() => {
     fetchClients();
-
-    if (!isSupabaseConfigured || !supabase) return;
-
-    const channel = supabase
-      .channel('realtime_clients')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'clients' },
-        () => fetchClients()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [fetchClients]);
 
   return { clients, loading, refreshClients: fetchClients };

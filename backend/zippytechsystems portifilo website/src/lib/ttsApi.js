@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+export const isSupabaseConfigured = true;
 
 const clientAudioCache = new Map();
 let currentAudioInstance = null;
@@ -29,7 +29,7 @@ export function stopSpeechPlayback() {
 }
 
 /**
- * Play synthesized voice using Edge Function tts-api with device female fallback
+ * Play synthesized voice using Hostinger PHP tts-api with device female fallback
  * 
  * @param {Object} options
  * @param {string} options.text - Text to speak (max 500 chars)
@@ -64,36 +64,33 @@ export async function speakText({
     return playBase64Audio(cachedBase64, onStart, onEnd, onError);
   }
 
-  // 2. Try Supabase Edge Function tts-api (Azure Neural TTS / Provider)
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cdrwrbmabcyhxngvyrxh.supabase.co';
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_G1oB1splS3Wb92LbNZ90pA_NAxOUXpC';
-
+  // 2. Try Hostinger PHP Voice endpoint (/api/voice.php)
   try {
-    const ttsEndpoint = `${supabaseUrl}/functions/v1/tts-api`;
+    const ttsEndpoint = '/api/voice.php';
     const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify({
         text: cleanText,
-        lang,
-        rate,
+        voice: lang === 'te-IN' ? 'te-IN-ShrutiNeural' : lang === 'hi-IN' ? 'hi-IN-SwaraNeural' : 'en-IN-NeerjaNeural',
+        rate: rate >= 1 ? `+${Math.round((rate - 1) * 100)}%` : `-${Math.round((1 - rate) * 100)}%`,
         session_id: sessionId
       })
     });
 
     if (response.ok) {
       const data = await response.json();
-      if (data?.audio_base64) {
-        clientAudioCache.set(cacheKey, data.audio_base64);
-        return playBase64Audio(data.audio_base64, onStart, onEnd, onError);
+      if (data?.audioBase64) {
+        clientAudioCache.set(cacheKey, data.audioBase64);
+        return playBase64Audio(data.audioBase64, onStart, onEnd, onError);
       }
     }
   } catch (err) {
-    console.warn('tts-api network call failed; falling back to device speech synthesis:', err);
+    console.warn('voice API network call failed; falling back to device speech synthesis:', err);
   }
 
   // 3. Fallback: Browser speechSynthesis with preferred female voice

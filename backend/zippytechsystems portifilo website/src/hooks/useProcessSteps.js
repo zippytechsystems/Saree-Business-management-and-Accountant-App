@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getProcessStepsApi } from '../lib/api';
 
 export function useProcessSteps() {
@@ -20,21 +19,6 @@ export function useProcessSteps() {
 
   useEffect(() => {
     fetchSteps();
-
-    if (!isSupabaseConfigured || !supabase) return;
-
-    const channel = supabase
-      .channel('realtime_process_steps')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'process_steps' },
-        () => fetchSteps()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [fetchSteps]);
 
   return { processSteps, loading, refreshSteps: fetchSteps };

@@ -221,7 +221,7 @@ BEGIN
         auth.role() = 'authenticated' AND
         (
             auth.jwt() ->> 'email' = 'lingaswamymaddeboina@gmail.com' OR
-            auth.jwt() ->> 'email' = 'contact@zippytechsystems.com'
+            auth.jwt() ->> 'email' = 'contact@zippysoftwares.in'
         )
     );
 END;

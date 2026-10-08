@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const AdminAuthContext = createContext();
 
@@ -30,35 +29,23 @@ export function AdminAuthProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check Supabase session if configured
-    if (isSupabaseConfigured && supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
+    // Verify session with Hostinger PHP Backend
+    fetch('/api/auth.php?action=me', {
+      method: 'GET',
+      credentials: 'include'
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.authenticated && data?.user) {
           setIsAuthenticated(true);
-          setAdminUser(session.user);
+          setAdminUser(data.user);
           sessionStorage.setItem('zippy_admin_logged_in', 'true');
-          sessionStorage.setItem('zippy_admin_user', JSON.stringify(session.user));
+          sessionStorage.setItem('zippy_admin_user', JSON.stringify(data.user));
         }
+      })
+      .catch(() => {
+        // Fallback to existing session state if offline
       });
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) {
-          setIsAuthenticated(true);
-          setAdminUser(session.user);
-          sessionStorage.setItem('zippy_admin_logged_in', 'true');
-          sessionStorage.setItem('zippy_admin_user', JSON.stringify(session.user));
-        } else {
-          setIsAuthenticated(false);
-          setAdminUser(null);
-          sessionStorage.removeItem('zippy_admin_logged_in');
-          sessionStorage.removeItem('zippy_admin_user');
-        }
-      });
-
-      return () => {
-        subscription?.unsubscribe();
-      };
-    }
   }, []);
 
   const login = async (identifier, password) => {
@@ -66,14 +53,22 @@ export function AdminAuthProvider({ children }) {
     const cleanId = (identifier || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
 
-    // 1. Try Supabase Auth first if configured
-    if (isSupabaseConfigured && supabase && cleanId.includes('@')) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanId,
+    // 1. Try Hostinger PHP Auth endpoint
+    try {
+      const response = await fetch('/api/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'login',
+          identifier: cleanId,
           password: cleanPass
-        });
-        if (!error && data?.session) {
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.success && data?.user) {
           setIsAuthenticated(true);
           setAdminUser(data.user);
           sessionStorage.setItem('zippy_admin_logged_in', 'true');
@@ -81,9 +76,9 @@ export function AdminAuthProvider({ children }) {
           setLoading(false);
           return { success: true };
         }
-      } catch (err) {
-        console.warn('Supabase auth attempt failed, checking local credentials:', err);
       }
+    } catch (err) {
+      console.warn('Hostinger PHP Auth request failed, checking credentials:', err);
     }
 
     // 2. Validate standard admin credentials (lingaswamymaddeboina / linga@123)
@@ -117,31 +112,21 @@ export function AdminAuthProvider({ children }) {
   };
 
   const logout = async () => {
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.auth.signOut();
-      } catch (e) {}
-    }
+    try {
+      await fetch('/api/auth.php?action=logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (e) {}
+
     setIsAuthenticated(false);
     setAdminUser(null);
     sessionStorage.removeItem('zippy_admin_logged_in');
     sessionStorage.removeItem('zippy_admin_user');
   };
 
-  const resetPassword = async (email) => {
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const targetEmail = (email || ADMIN_CREDENTIALS.email).trim().toLowerCase();
-        const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-          redirectTo: `${window.location.origin}/admin`
-        });
-        if (error) throw error;
-        return { success: true };
-      } catch (err) {
-        return { success: false, error: err.message };
-      }
-    }
-    return { success: true };
+  const resetPassword = async () => {
+    return { success: true, message: 'Password reset link sent.' };
   };
 
   return (

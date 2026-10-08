@@ -42,4 +42,10 @@ service-account*.json
 # Audit Reports
 lh-*.json
 
+# Workspace
+*.code-workspace
 
+# PHP Backend Config and Uploads
+api/config.php
+uploads/
+public/uploads/

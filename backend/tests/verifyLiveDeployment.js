@@ -10,12 +10,16 @@
 
 const backendUrl = (
   process.argv[2] ||
+  process.env.HOSTINGER_BACKEND_URL ||
+  process.env.BACKEND_URL ||
   process.env.RAILWAY_URL ||
   'https://saree-business-backend-production-b59f.up.railway.app'
 ).replace(/\/+$/, '');
 
 const frontendUrl = (
   process.argv[3] ||
+  process.env.HOSTINGER_FRONTEND_URL ||
+  process.env.FRONTEND_URL ||
   process.env.NETLIFY_URL ||
   'https://businessaccountantapp.netlify.app'
 ).replace(/\/+$/, '');

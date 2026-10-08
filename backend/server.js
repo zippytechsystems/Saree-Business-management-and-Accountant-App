@@ -237,8 +237,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-if (process.env.VERCEL !== '1') {
-  app.listen(PORT, async () => {
+app.listen(PORT, async () => {
     console.log(`[Server] Backend service running on http://localhost:${PORT}`);
 
     // Verify Hostinger MySQL Database Connection
@@ -270,6 +269,5 @@ if (process.env.VERCEL !== '1') {
       console.log('================================================================');
     }
   });
-}
 
 export default app;

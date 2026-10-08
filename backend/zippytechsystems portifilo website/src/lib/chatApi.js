@@ -1,10 +1,7 @@
-import { supabase } from './supabase';
-
-const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL || 'https://cdrwrbmabcyhxngvyrxh.supabase.co';
-const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkcndyYm1hYmN5aHhuZ3Z5cnhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MzQ4ODQsImV4cCI6MjEwNjUxMDg4NH0.Z35CemddNDASSu3gbOHXeOGLFskj06ZW8Q__ujBZ4fc';
+/**
+ * ZippyTechSystems Pvt. Ltd. — Chatbot Client API
+ * Domain: https://zippysoftwares.in
+ */
 
 /**
  * Generate or retrieve a persistent session UUID from localStorage
@@ -30,7 +27,7 @@ export function resetChatSession() {
 }
 
 /**
- * Send messages to Supabase Edge Function chat-api
+ * Send messages to Hostinger PHP chat API (/api/chat.php)
  */
 export async function sendChatMessage({
   sessionId,
@@ -50,18 +47,19 @@ export async function sendChatMessage({
     };
   }
 
-  const endpoint = `${supabaseUrl}/functions/v1/chat-api`;
+  const endpoint = '/api/chat.php';
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseAnonKey}`
+        'Accept': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify({
         session_id: sessionId,
+        channel,
         messages: messages.map((m) => ({
           role: m.role,
           content: m.content
@@ -72,7 +70,7 @@ export async function sendChatMessage({
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      console.warn(`chat-api returned ${response.status}:`, errText);
+      console.warn(`chat api returned ${response.status}:`, errText);
       return {
         reply:
           'I would be happy to connect you directly with our founder Lingaswamy on WhatsApp for personalized assistance!',
@@ -96,7 +94,7 @@ export async function sendChatMessage({
       disabled: Boolean(data.disabled)
     };
   } catch (err) {
-    console.warn('chat-api network invocation error:', err);
+    console.warn('chat api network invocation error:', err);
     return {
       reply:
         'I would be happy to connect you directly with our founder Lingaswamy on WhatsApp for personalized assistance!',

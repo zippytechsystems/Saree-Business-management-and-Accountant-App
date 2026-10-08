@@ -47,7 +47,7 @@ export default function TermsPage() {
             <section>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>2. Pricing &amp; Quotations</h3>
               <p>
-                Listed starting prices (Web Development from ₹7,000, App Development from ₹10,000, AI Automation from ₹6,000)
+                Listed starting prices (Web Development from ₹6,500, App Development from ₹20,000, AI Automation from ₹7,500)
                 represent baseline configurations. Final project quotations are tailored and documented based on specific customer
                 scope, API dependencies, and third-party integrations.
               </p>

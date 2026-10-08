@@ -187,9 +187,9 @@ export default function QuoteModal({ isOpen, onClose, defaultService = 'Web Deve
                 value={formData.service}
                 onChange={(e) => setFormData({ ...formData, service: e.target.value })}
               >
-                <option value="Web Development (from ₹7,000)">Web Development (from ₹7,000)</option>
-                <option value="App Development (from ₹10,000)">App Development (from ₹10,000)</option>
-                <option value="AI Automation (from ₹6,000)">AI Automation (from ₹6,000)</option>
+                <option value="Web Development (from ₹6,500)">Web Development (from ₹6,500)</option>
+                <option value="App Development (from ₹20,000)">App Development (from ₹20,000)</option>
+                <option value="AI Automation (from ₹7,500)">AI Automation (from ₹7,500)</option>
                 <option value="Custom Business Software Suite">Custom Business Software Suite</option>
               </select>
             </div>

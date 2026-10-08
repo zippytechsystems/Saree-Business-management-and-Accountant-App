@@ -8,7 +8,7 @@ export default function ContactSection() {
     name: '',
     phone: '',
     email: '',
-    service: 'Web Development (from ₹7,000)',
+    service: 'Web Development (from ₹6,500)',
     message: '',
     whatsappOptIn: true,
     honeypot: ''
@@ -75,7 +75,7 @@ export default function ContactSection() {
 ${formData.email.trim() ? `✉️ *Email:* ${formData.email.trim()}\n` : ''}🛠️ *Service Needed:* ${formData.service}
 💬 *Project Details:* ${formData.message.trim() || 'I would like more information and a price quote.'}
 -----------------------------
-(Sent from zippytechsystems.com portfolio website)`);
+(Sent from zippysoftwares.in portfolio website)`);
 
     const whatsappUrl = `https://wa.me/${waNumber}?text=${prefillText}`;
 
@@ -321,9 +321,9 @@ ${formData.email.trim() ? `✉️ *Email:* ${formData.email.trim()}\n` : ''}🛠
                     ))
                   ) : (
                     <>
-                      <option value="Web Development (from ₹7,000)">Web Development (from ₹7,000)</option>
-                      <option value="App Development (from ₹10,000)">App Development (from ₹10,000)</option>
-                      <option value="AI Automation (from ₹6,000)">AI Automation (from ₹6,000)</option>
+                      <option value="Web Development (from ₹6,500)">Web Development (from ₹6,500)</option>
+                      <option value="App Development (from ₹20,000)">App Development (from ₹20,000)</option>
+                      <option value="AI Automation (from ₹7,500)">AI Automation (from ₹7,500)</option>
                     </>
                   )}
                   <option value="Complete Web + App + AI Package">Complete Web + App + AI Package</option>

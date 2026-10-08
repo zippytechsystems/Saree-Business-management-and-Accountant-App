@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://zippytechsystems.com/sitemap.xml
+Sitemap: https://zippysoftwares.in/sitemap.xml

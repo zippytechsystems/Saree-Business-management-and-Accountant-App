@@ -30,9 +30,12 @@ function getCorsHeaders(origin: string | null): HeadersInit {
       origin.startsWith('http://localhost:') ||
       origin.startsWith('http://127.0.0.1:');
     const isNetlify = origin.endsWith('.netlify.app');
+    const isCustomDomain =
+      origin === 'https://zippysoftwares.in' ||
+      origin === 'https://www.zippysoftwares.in';
     const isExplicitlyAllowed = configuredOrigins.includes(origin);
 
-    if (isLocalhost || isNetlify || isExplicitlyAllowed) {
+    if (isLocalhost || isNetlify || isCustomDomain || isExplicitlyAllowed) {
       allowOrigin = origin;
     } else if (configuredOrigins.length > 0) {
       allowOrigin = configuredOrigins[0];

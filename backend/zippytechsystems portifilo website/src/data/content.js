@@ -27,7 +27,7 @@ export const content = {
     location: 'Hyderabad, Telangana, India',
     yearFounded: '2024',
     currenciesAccepted: 'INR',
-    priceRange: '₹6,000 - ₹50,000'
+    priceRange: '₹6,500 - ₹50,000'
   },
 
   // Founder & Direct Contact Person
@@ -40,7 +40,7 @@ export const content = {
     phoneCall: '+916302690251',
     whatsappNumber: '916302690251',
     whatsappLink: 'https://wa.me/916302690251',
-    email: 'contact@zippytechsystems.com'
+    email: 'contact@zippysoftwares.in'
   },
 
   // Social Media Links (Muted, optional-looking)
@@ -101,8 +101,8 @@ export const content = {
       badgeColor: '#1d5cf0',
       gradient: 'linear-gradient(135deg, #1d5cf0 0%, #3b82f6 100%)',
       introLine: 'A website that helps your business grow.',
-      startingPrice: '₹7,000',
-      startingPriceNum: 7000,
+      startingPrice: '₹6,500',
+      startingPriceNum: 6500,
       priceNote: 'Starting price in INR',
       conceptCopy:
         'A good website brings your business online, builds trust, shows your services and products to customers 24 hours a day, and helps you get more enquiries and grow your business.',
@@ -135,7 +135,7 @@ export const content = {
         'Ongoing website maintenance, security updates and yearly support'
       ],
       whatsappMessage:
-        "Hi Lingaswamy, I'm interested in Web Development services starting from ₹7,000. I need a website for my business. Please share details.",
+        "Hi Lingaswamy, I'm interested in Web Development services starting from ₹6,500. I need a website for my business. Please share details.",
       icon: 'Globe'
     },
     {
@@ -146,8 +146,8 @@ export const content = {
       badgeColor: '#12a150',
       gradient: 'linear-gradient(135deg, #12a150 0%, #10b981 100%)',
       introLine: 'Ready-made business apps for shops, small or big.',
-      startingPrice: '₹10,000',
-      startingPriceNum: 10000,
+      startingPrice: '₹20,000',
+      startingPriceNum: 20000,
       priceNote: 'Starting price in INR',
       conceptCopy:
         'We build accountant apps and business management apps for small and big shops. The app handles billing, accounts, stock and staff records automatically, so the shop owner can save the salary of a full-time accountant and still keep accurate accounts.',
@@ -190,7 +190,7 @@ export const content = {
         'Continuous app maintenance, feature upgrades and bug fixes'
       ],
       whatsappMessage:
-        "Hi Lingaswamy, I'm interested in App Development services starting from ₹10,000 for my shop/business. I would like to discuss my requirements.",
+        "Hi Lingaswamy, I'm interested in App Development services starting from ₹20,000 for my shop/business. I would like to discuss my requirements.",
       icon: 'Smartphone'
     },
     {
@@ -201,8 +201,8 @@ export const content = {
       badgeColor: '#7a2fd0',
       gradient: 'linear-gradient(135deg, #7a2fd0 0%, #9333ea 100%)',
       introLine: 'Never miss a customer enquiry again.',
-      startingPrice: '₹6,000',
-      startingPriceNum: 6000,
+      startingPrice: '₹7,500',
+      startingPriceNum: 7500,
       priceNote: 'Starting price in INR',
       conceptCopy:
         'Enquiries are answered instantly on WhatsApp, phone and website even when the owner is busy or the shop is closed, so no lead is lost and more enquiries turn into customers.',
@@ -243,7 +243,7 @@ export const content = {
         'Custom AI agents tailored for your unique business operations'
       ],
       whatsappMessage:
-        "Hi Lingaswamy, I'm interested in AI Automation starting from ₹6,000. I want to automate my customer enquiries and WhatsApp replies.",
+        "Hi Lingaswamy, I'm interested in AI Automation starting from ₹7,500. I want to automate my customer enquiries and WhatsApp replies.",
       icon: 'Cpu'
     }
   ],
@@ -370,10 +370,10 @@ export const content = {
     story: [
       'ZippyTechSystems was founded by Lingaswamy to provide affordable, transparent, and high-quality software solutions specifically for Indian SMBs.',
       'Big agencies charge lakhs for basic setups, while generic templates fail when your business expands. We provide custom websites, business accountant apps, and WhatsApp AI automations that bring tangible value from day one.',
-      'With direct founder communication on WhatsApp, honest starting prices (Web from ₹7k, App from ₹10k, AI from ₹6k), and rapid delivery, we partner with you for long-term growth.'
+      'With direct founder communication on WhatsApp, honest starting prices (Web from ₹6.5k, App from ₹20k, AI from ₹7.5k), and rapid delivery, we partner with you for long-term growth.'
     ],
     milestones: [
-      { number: '₹6,000', label: 'Starting Price in INR' },
+      { number: '₹6,500', label: 'Starting Price in INR' },
       { number: '48h', label: 'Fastest Delivery Milestone' },
       { number: '100%', label: 'Direct Founder Line' },
       { number: '99.9%', label: 'Uptime & Reliability' }
@@ -422,12 +422,12 @@ export const content = {
       id: 'faq-1',
       category: 'General',
       question: 'What makes ZippyTechSystems different from other agencies in India?',
-      answer: 'We eliminate bloated agency overhead and middleman layers. You communicate directly with founder Lingaswamy on WhatsApp or call. We provide transparent starting prices (Web from ₹7k, App from ₹10k, AI from ₹6k) and deliver production-ready software in 48 hours to 7 days.'
+      answer: 'We eliminate bloated agency overhead and middleman layers. You communicate directly with founder Lingaswamy on WhatsApp or call. We provide transparent starting prices (Web from ₹6.5k, App from ₹20k, AI from ₹7.5k) and deliver production-ready software in 48 hours to 7 days.'
     },
     {
       id: 'faq-2',
       category: 'Web',
-      question: 'What is included in the ₹7,000 Web Development starting package?',
+      question: 'What is included in the ₹6,500 Web Development starting package?',
       answer: 'It includes a modern responsive business website, custom domain connection, lightning-fast cloud hosting setup, mobile optimization, WhatsApp direct integration, contact form, and Google Search Console/SEO basics.'
     },
     {
@@ -462,7 +462,7 @@ export const content = {
       id: 'pkg-web-starter',
       domain: 'web',
       name: 'Starter Web Presence',
-      price: '₹7,000',
+      price: '₹6,500',
       tagline: 'Best for local shops, professionals, and new businesses',
       deliverables: [
         'Single-page fast responsive landing site',
@@ -494,7 +494,7 @@ export const content = {
       id: 'pkg-app-billing',
       domain: 'app',
       name: 'Shop Billing & Udhar App',
-      price: '₹10,000',
+      price: '₹20,000',
       tagline: 'Save accountant salary with automated shop records',
       deliverables: [
         'Fast barcode scanning & POS billing',
@@ -526,7 +526,7 @@ export const content = {
       id: 'pkg-ai-whatsapp',
       domain: 'ai',
       name: 'WhatsApp 24/7 Auto-Responder',
-      price: '₹6,000',
+      price: '₹7,500',
       tagline: 'Never lose a customer lead after working hours',
       deliverables: [
         'Official or QR WhatsApp automation setup',
@@ -570,9 +570,9 @@ export const content = {
   // Footer Navigation
   footerLinks: {
     services: [
-      { label: 'Web Development (from ₹7,000)', path: '/#web-development' },
-      { label: 'App Development (from ₹10,000)', path: '/#app-development' },
-      { label: 'AI Automation (from ₹6,000)', path: '/#ai-automation' }
+      { label: 'Web Development (from ₹6,500)', path: '/#web-development' },
+      { label: 'App Development (from ₹20,000)', path: '/#app-development' },
+      { label: 'AI Automation (from ₹7,500)', path: '/#ai-automation' }
     ],
     quickLinks: [
       { label: 'Home', path: '/' },
@@ -607,7 +607,7 @@ export function buildEnquiryWhatsAppUrl({ name, phone, service, message }) {
 🛠️ *Service Needed:* ${service || 'General Enquiry'}
 💬 *Project Details:* ${message || 'I would like more information and a price quote.'}
 -----------------------------
-(Sent from zippytechsystems.com portfolio website)`;
+(Sent from zippysoftwares.in portfolio website)`;
 
   return buildWhatsAppUrl(text);
 }

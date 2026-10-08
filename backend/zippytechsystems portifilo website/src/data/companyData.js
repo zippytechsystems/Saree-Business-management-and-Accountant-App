@@ -10,7 +10,7 @@ export const companyData = {
     'AI Automation'
   ],
   contact: {
-    email: 'contact@zippytechsystems.com',
+    email: 'contact@zippysoftwares.in',
     whatsapp: 'https://wa.me/916302690251?text=Hello%20Lingaswamy%2C%20I%20am%20interested%20in%20discussing%20a%20new%20project%20with%20ZippyTechSystems.',
     responseTime: 'Replies typically within 24 business hours',
     availability: 'Monday – Friday, 9:00 AM – 6:00 PM IST'

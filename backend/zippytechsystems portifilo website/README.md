@@ -90,7 +90,7 @@ The website is engineered with a **hybrid data architecture**:
    VITE_SUPABASE_URL=https://your-project-id.supabase.co
    VITE_SUPABASE_ANON_KEY=your-anon-key-here
    ```
-4. Restart the development server (`npm run dev`) or redeploy to Vercel/Netlify with these environment variables added in the hosting dashboard.
+4. Restart the development server (`npm run dev`) or build for Hostinger (`npm run build`) with these environment variables configured in your `.env` file.
 
 ---
 
@@ -190,39 +190,39 @@ projects: [
 
 ---
 
-## 🌐 How to Deploy for Free (100% Free Hosting)
+## 🌐 How to Deploy on Hostinger (Recommended Production Hosting)
 
-### Option A: Deploy on Vercel (Recommended)
-1. Push your repository to GitHub:
-   ```bash
-   git remote add origin https://github.com/zippytechsystems/zippytechsystems-portifilo.git
-   git branch -M main
-   git push -u origin main
-   ```
-2. Go to [vercel.com](https://vercel.com/) and sign in with GitHub.
-3. Click **"Add New..."** > **"Project"**.
-4. Select `zippytechsystems-portifilo`.
-5. Keep default settings (Framework Preset: **Vite**, Build Command: `npm run build`, Output Directory: `dist`).
-6. Click **Deploy**. Your portfolio will be live with a free SSL certificate in under 1 minute!
+Hostinger web hosting uses Apache / LiteSpeed web servers, which natively support static Single Page Applications (SPAs) with full client-side routing, HTTPS redirection, compression, and caching via `.htaccess`.
 
-> **SPA Routing on Vercel**: A `vercel.json` file is included in this repository to handle client-side routing rewrites automatically.
+### Step 1: Build the Production Application
+Ensure your environment variables are configured in `.env` (or environment):
+```bash
+npm run build
+```
+This produces an optimized `dist/` directory containing:
+- Pre-minified HTML, CSS, JavaScript, and SVG assets.
+- The pre-configured `.htaccess` file copied automatically from `public/`.
 
-### Option B: Deploy on Netlify (Recommended)
-1. Push your repository to GitHub:
-   ```bash
-   git push -u origin main
-   ```
-2. Log in to [netlify.com](https://www.netlify.com/) and click **"Add new site"** > **"Import an existing project"**.
-3. Select **GitHub** and pick `zippytechsystems-portifilo`.
-4. The build settings are auto-detected via [`netlify.toml`](./netlify.toml):
-   - **Build command**: `npm run build`
-   - **Publish directory**: `dist`
-5. Click **"Site configuration"** (or **"Environment variables"**):
-   Add the following exact environment variables:
-   - `VITE_SUPABASE_URL` = `https://cdrwrbmabcyhxngvyrxh.supabase.co`
-   - `VITE_SUPABASE_ANON_KEY` = `sb_publishable_G1oB1splS3Wb92LbNZ90pA_NAxOUXpC`
-   *(Or your custom Supabase URL and publishable/anon key. Never add or expose the service_role key!)*
-6. Click **"Deploy site"**. Both `public/_redirects` and `netlify.toml` ensure Single Page App (SPA) client-side routing works smoothly across all URLs (`/admin`, `/services`, etc.).
+### Step 2: Upload to Hostinger File Manager
+1. Log in to **Hostinger hPanel** (or cPanel).
+2. Navigate to **Websites** > Click **Manage** next to your domain.
+3. Open **Files** > **File Manager** (or connect via FTP / SSH).
+4. Navigate into the **`public_html/`** directory of your domain.
+5. Upload the contents of the `dist/` directory (or upload `hostinger_frontend_dist.zip` and click **Extract**).
+   > **Note:** The `index.html` and `.htaccess` files must be placed directly inside `public_html/` (not inside a nested subfolder).
+
+### Step 3: Verify `.htaccess` Configuration
+The included `.htaccess` file inside `public_html/` automatically handles:
+- **HTTPS Enforcement**: Seamlessly redirects all HTTP traffic to HTTPS.
+- **SPA Client-Side Routing**: Fallback rewrite so refreshing routes like `/admin`, `/services`, `/about` loads `index.html` without 404 errors.
+- **Gzip / Deflate Compression**: Drastically reduces bundle transfer sizes for top Core Web Vitals performance.
+- **Browser Caching Headers**: Sets 1-year cache headers for immutable static assets (`.js`, `.css`, `.svg`, `.webp`) and `no-cache` for HTML to ensure instant updates.
+- **Security Headers**: Enforces `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
+
+### Step 4: Configure Free SSL in Hostinger
+1. In Hostinger hPanel, go to **Security** > **SSL**.
+2. Click **Install SSL** (free lifetime Let's Encrypt certificate).
+3. Ensure **Force HTTPS** is enabled.
 
 ---
 
@@ -230,9 +230,8 @@ projects: [
 
 ```text
 zippytechsystems-portfolio/
-├── netlify.toml                # Netlify build configuration & SPA redirects
-├── public/                     # Static assets & SVG project illustrations
-│   ├── _redirects              # Netlify SPA fallback redirect rule (/* /index.html 200)
+├── public/                     # Static assets & SVG illustrations
+│   ├── .htaccess               # Hostinger Apache / LiteSpeed SPA rewrites & headers
 │   ├── projects/               # Domain-specific SVG mockups (saree-app, clinic-web, etc.)
 │   ├── robots.txt              # Search engine crawler instructions
 │   └── sitemap.xml             # XML sitemap for SEO indexing
@@ -267,7 +266,6 @@ zippytechsystems-portfolio/
 ├── .env.example                # Safe environment variable template
 ├── index.html                  # HTML entry with Bricolage Grotesque & JSON-LD
 ├── package.json                # Project dependencies and npm scripts
-├── vercel.json                 # Vercel SPA routing rewrites
 └── vite.config.js              # Vite dev and build configuration
 ```
 
@@ -352,11 +350,11 @@ supabase secrets set ANTHROPIC_API_KEY=your_actual_anthropic_api_key_here
 ```
 
 ### 5. Set CORS Allowed Origins (Optional)
-To restrict CORS to your exact Netlify domain and localhost:
+To restrict CORS to your exact Hostinger domain and local development:
 ```bash
-supabase secrets set ALLOWED_ORIGINS="https://YOUR-SITE.netlify.app,http://localhost:5173,http://localhost:3000"
+supabase secrets set ALLOWED_ORIGINS="https://yourdomain.com,https://www.yourdomain.com,http://localhost:5173,http://localhost:3000"
 ```
-*(Replace `https://YOUR-SITE.netlify.app` with your actual Netlify site URL. You can comma-separate multiple custom domains or Netlify URLs).*
+*(Replace `https://yourdomain.com` with your actual Hostinger custom domain. You can comma-separate multiple custom domains).*
 
 ### 6. Deploy the Supabase Edge Functions (`chat-api` & `tts-api`)
 Deploy both edge functions using the Supabase CLI:
@@ -403,10 +401,16 @@ To update your existing Supabase settings table to the official number `63026902
 UPDATE settings SET phone = '6302690251', whatsapp_number = '6302690251';
 ```
 
-### 10. Netlify Environment Variables
-In your Netlify Dashboard (**Site configuration** > **Environment variables**), make sure these are set:
+### 10. Hostinger Environment Variables & Production Build
+In Vite, environment variables beginning with `VITE_` are injected at build time into the client bundle. Before running `npm run build` to generate your Hostinger deployment files, ensure your `.env` file contains:
 - `VITE_SUPABASE_URL` = `https://cdrwrbmabcyhxngvyrxh.supabase.co`
 - `VITE_SUPABASE_ANON_KEY` = `<your-supabase-anon-or-publishable-key>`
+
+Then execute:
+```bash
+npm run build
+```
+Upload the generated `dist/` directory (or `hostinger_frontend_dist.zip`) to Hostinger's `public_html/`.
 
 ### 11. Testing Locally
 Run the development server locally:

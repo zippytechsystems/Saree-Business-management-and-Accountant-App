@@ -108,7 +108,7 @@ The **Coexistence Path** allows you to use the **same SIM card** on both the **W
    - **WhatsApp Business Display Name**: `ZippyTechSystems`
    - **Category**: `Software & Technology` / `Professional Services`
    - **Business Description**: `Build • Automate • Grow — Affordable Web, App & AI Solutions for SMBs.`
-   - **Website**: `https://zippytechsystems.com`
+   - **Website**: `https://zippysoftwares.in`
 4. Enter Phone Number:
    - Country: `India (+91)`
    - Phone Number: `6302690251`

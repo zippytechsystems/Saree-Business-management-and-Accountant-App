@@ -1197,7 +1197,7 @@ export default function AdminPage() {
               </div>
               <div style={{ fontSize: '0.68rem', color: isLiveConnected ? '#12a150' : '#eab308', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isLiveConnected ? '#12a150' : '#eab308' }} />
-                {isLiveConnected ? 'Live Supabase' : 'Local Fallback'}
+                {isLiveConnected ? 'Live Hostinger API' : 'Local Fallback'}
               </div>
             </div>
           </div>
@@ -1771,7 +1771,7 @@ export default function AdminPage() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', color: '#12a150', fontWeight: 600 }}>
                   <CheckCircle2 size={18} />
-                  <span>Prices updated and broadcasted via Supabase Realtime! Live website in sync.</span>
+                  <span>Prices updated and saved to Hostinger MySQL! Live website in sync.</span>
                 </div>
                 <Link
                   to="/"
@@ -2713,7 +2713,7 @@ export default function AdminPage() {
                             />
                           </label>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
-                            Uploads to Supabase Storage bucket ('portfolio-images')
+                            Uploads securely to Hostinger /uploads/ directory
                           </div>
                         </div>
                       </div>
@@ -4231,7 +4231,7 @@ export default function AdminPage() {
                       <input
                         type="email"
                         className="form-input"
-                        placeholder="contact@zippytechsystems.com"
+                        placeholder="contact@zippysoftwares.in"
                         value={settingsForm.email || ''}
                         onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
                       />
@@ -5890,7 +5890,7 @@ export default function AdminPage() {
                     const res = await persistDesignSettings(designForm);
                     setSavingDesign(false);
                     if (res?.success) {
-                      showToast('Design settings saved and live in Supabase!', 'success');
+                      showToast('Design settings saved and live on Hostinger!', 'success');
                     } else {
                       showToast(res?.error || 'Failed to save design settings.', 'error');
                     }
@@ -6107,7 +6107,7 @@ export default function AdminPage() {
                   const res = await persistDesignSettings(designForm);
                   setSavingDesign(false);
                   if (res?.success) {
-                    showToast('Design settings saved and live in Supabase!', 'success');
+                    showToast('Design settings saved and live on Hostinger!', 'success');
                   } else {
                     showToast(res?.error || 'Failed to save design settings.', 'error');
                   }
