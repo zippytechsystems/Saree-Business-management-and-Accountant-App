@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="aiBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#140b28"/>
+      <stop offset="100%" stop-color="#0b1b4a"/>
+    </linearGradient>
+    <linearGradient id="purpleGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7a2fd0"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#aiBg)"/>
+
+  <!-- Phone Mockup with WhatsApp Chat -->
+  <rect x="120" y="40" width="260" height="420" rx="36" fill="#0d091a" stroke="#7a2fd0" stroke-width="3"/>
+  <rect x="200" y="52" width="100" height="16" rx="8" fill="#06040d"/>
+
+  <!-- Chat Screen -->
+  <rect x="135" y="80" width="230" height="360" rx="16" fill="#0a1215"/>
+  <!-- WhatsApp Top Header -->
+  <rect x="135" y="80" width="230" height="48" fill="#075e54"/>
+  <circle cx="160" cy="104" r="14" fill="#128c7e"/>
+  <text x="182" y="98" fill="#ffffff" font-family="sans-serif" font-size="11" font-weight="bold">AI Property Assistant</text>
+  <text x="182" y="112" fill="#d1fae5" font-family="sans-serif" font-size="9">online 24x7 • ZippyBot</text>
+
+  <!-- Incoming Msg (User) -->
+  <rect x="195" y="145" width="160" height="42" rx="10" fill="#005c4b"/>
+  <text x="205" y="162" fill="#ffffff" font-family="sans-serif" font-size="10">Hi, looking for 3BHK flats</text>
+  <text x="205" y="176" fill="#ffffff" font-family="sans-serif" font-size="10">under 85 Lakhs in Gachibowli.</text>
+
+  <!-- Outgoing Msg (AI Bot) -->
+  <rect x="145" y="200" width="180" height="68" rx="10" fill="#202c33"/>
+  <text x="155" y="218" fill="#c084fc" font-family="sans-serif" font-size="10" font-weight="bold">AI Agent (0.2s reply):</text>
+  <text x="155" y="234" fill="#e2e8f0" font-family="sans-serif" font-size="10">We have 4 ready-to-move units!</text>
+  <text x="155" y="248" fill="#e2e8f0" font-family="sans-serif" font-size="10">Would you like a brochure or</text>
+  <text x="155" y="260" fill="#e2e8f0" font-family="sans-serif" font-size="10">a site visit scheduled tomorrow?</text>
+
+  <!-- Incoming (User) -->
+  <rect x="210" y="280" width="145" height="30" rx="10" fill="#005c4b"/>
+  <text x="220" y="300" fill="#ffffff" font-family="sans-serif" font-size="10">Send brochure please!</text>
+
+  <!-- Bot Attachment -->
+  <rect x="145" y="325" width="180" height="46" rx="10" fill="#202c33"/>
+  <rect x="155" y="333" width="30" height="30" rx="6" fill="#7a2fd0"/>
+  <text x="195" y="348" fill="#ffffff" font-family="sans-serif" font-size="10" font-weight="bold">Flat_Brochure.pdf</text>
+  <text x="195" y="362" fill="#94a3b8" font-family="sans-serif" font-size="9">Synced to Google Sheet</text>
+
+  <!-- Right Side Analytics -->
+  <rect x="420" y="80" width="310" height="340" rx="20" fill="#130e28" stroke="rgba(122, 47, 208, 0.4)" stroke-width="2"/>
+  <text x="450" y="125" fill="#c084fc" font-family="sans-serif" font-size="13" font-weight="bold">INTELLIGENT LEAD CONVERSION</text>
+  <text x="450" y="160" fill="#ffffff" font-family="sans-serif" font-size="22" font-weight="bold">24x7 WhatsApp AI Agent</text>
+  <text x="450" y="190" fill="#94a3b8" font-family="sans-serif" font-size="13">Answers customer queries in seconds, qualifies</text>
+  <text x="450" y="210" fill="#94a3b8" font-family="sans-serif" font-size="13">intents, and logs lead contact numbers into CRM.</text>
+
+  <rect x="450" y="240" width="250" height="42" rx="10" fill="#1e1338"/>
+  <text x="465" y="266" fill="#ffe500" font-family="sans-serif" font-size="13" font-weight="bold">⚡ 0.5s Avg Response Speed</text>
+
+  <rect x="450" y="295" width="250" height="42" rx="10" fill="#1e1338"/>
+  <text x="465" y="321" fill="#34d399" font-family="sans-serif" font-size="13" font-weight="bold">📊 100% Leads Saved in Google Sheets</text>
+
+  <rect x="450" y="350" width="250" height="42" rx="10" fill="url(#purpleGlow)"/>
+  <text x="495" y="376" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="bold">Deploy in 48 Hours</text>
+</svg>

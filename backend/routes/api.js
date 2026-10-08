@@ -15,10 +15,8 @@ import * as stockService from '../services/stockService.js';
 import * as lenderService from '../services/lenderService.js';
 import * as calculationService from '../services/calculationService.js';
 import * as reportService from '../services/reportService.js';
-import * as cloudBackupService from '../services/cloudBackupService.js';
 import * as authService from '../services/authService.js';
 import * as authoritativeDataService from '../services/authoritativeDataService.js';
-import * as supabaseService from '../services/supabaseService.js';
 
 // Middleware
 import { authenticateOwner, requireAuth } from '../middleware/authMiddleware.js';
@@ -45,14 +43,7 @@ router.get('/health', async (req, res) => {
     if (isMySQL) {
       mysqlStatus = await mysql.getMySQLStatus();
     }
-    const isSupabase = supabaseService.isSupabaseConfigured();
-    let cloudStatus = null;
-    if (isSupabase) {
-      cloudStatus = await supabaseService.testSupabaseConnection();
-    }
-
     const isMySQLConnected = isMySQL && mysqlStatus?.status === 'connected';
-
     res.json({
       success: true,
       app: 'Business Management & Accountant Management App',
@@ -60,18 +51,13 @@ router.get('/health', async (req, res) => {
       status: 'Production Ready (V1.0)',
       database: {
         ...dbStatus,
-        mode: isMySQLConnected
-          ? 'hostinger_mysql_authoritative'
-          : (isSupabase && cloudStatus?.connected ? 'authoritative_supabase' : 'hostinger_authoritative'),
+        mode: isMySQLConnected ? 'hostinger_mysql_authoritative' : 'hostinger_authoritative',
         engine: isMySQLConnected
           ? 'Hostinger MySQL Database (127.0.0.1:3306)'
-          : (isSupabase && cloudStatus?.connected ? 'Supabase PostgreSQL' : 'Hostinger Enterprise SQLite (WAL Mode)'),
+          : 'Hostinger Enterprise SQLite (WAL Mode)',
         mysql_configured: isMySQL,
         mysql_connected: isMySQLConnected,
         mysql_info: mysqlStatus,
-        supabase_configured: isSupabase,
-        supabase_connected: Boolean(cloudStatus?.connected),
-        supabase_url: isSupabase ? process.env.SUPABASE_URL : null,
       },
       timestamp: new Date().toISOString(),
     });

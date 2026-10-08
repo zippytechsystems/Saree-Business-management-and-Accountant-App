@@ -1,0 +1,226 @@
+/* ==========================================================================
+   Motion System: Single Tasteful Hero Ambient Animation
+   Strictly adheres to: "one tasteful hero animation only. No scattered fade-in
+   effects on every section. Respects prefers-reduced-motion."
+   ========================================================================== */
+
+/* Hero ambient mesh float */
+@keyframes heroGlowShift {
+  0% {
+    transform: translate(-50%, -10%) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-48%, -6%) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -10%) scale(1);
+    opacity: 0.85;
+  }
+}
+
+/* Subtle floating badge in Hero */
+@keyframes floatBadge {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Gentle pulse for the floating WhatsApp button */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(18, 161, 80, 0.4), 0 0 0 0 rgba(18, 161, 80, 0.5);
+  }
+  50% {
+    box-shadow: 0 8px 30px rgba(18, 161, 80, 0.6), 0 0 0 10px rgba(18, 161, 80, 0);
+  }
+}
+
+.animate-hero-mesh {
+  animation: heroGlowShift 14s ease-in-out infinite;
+}
+
+.animate-float-badge {
+  animation: floatBadge 4s ease-in-out infinite;
+}
+
+.animate-whatsapp-pulse {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Phase 1 Premium Design & Motion Utilities
+   ========================================================================== */
+
+/* 1. Frosted Glass with Solid Fallbacks & GPU optimization */
+.frosted-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 14px));
+  border: 1px solid var(--glass-border);
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.frosted-glass:hover {
+  border-color: var(--glass-border-hover);
+}
+
+/* Limit blurred (backdrop-filter) layers on mobile/lite tier to keep frame rates 60fps */
+[data-quality-tier='lite'] .frosted-glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--bg-card);
+}
+
+@supports not (backdrop-filter: blur(14px)) {
+  .frosted-glass {
+    background: var(--glass-fallback-bg);
+  }
+}
+
+/* 2. Scroll Reveals (IntersectionObserver triggered) */
+/* Requirement 3: Default state without JavaScript is 100% visible */
+.reveal-on-scroll {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hide only when JavaScript is enabled and active via html.js */
+html.js .reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+html.js .reveal-on-scroll.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 3. Accessible Word-by-Word Text Reveal */
+.text-reveal-container {
+  display: inline;
+}
+
+.text-reveal-words {
+  display: inline;
+}
+
+.text-reveal-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: textWordFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  white-space: pre-wrap;
+}
+
+.hero-headline-gradient .text-reveal-word {
+  background: linear-gradient(135deg, #1d5cf0 0%, #7a2fd0 60%, #12a150 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes textWordFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 4. Subtle Floating Card Highlight */
+@keyframes floatCardGentle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.floating-card-subtle {
+  animation: floatCardGentle 5s ease-in-out infinite;
+}
+
+/* 5. Fixed Top Scroll Progress Bar */
+/* High z-index to stay visible above sticky nav (100), but below floating buttons/modals (1050). Pointer-events none ensures zero click blocking */
+.scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--brand-yellow);
+  z-index: 999;
+  transform-origin: 0% 50%;
+  transform: scaleX(0);
+  pointer-events: none;
+  box-shadow: 0 1px 8px rgba(255, 229, 0, 0.6);
+}
+
+/* ==========================================================================
+   Reduced Motion Rules (OS preference and manual toggle)
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal-on-scroll,
+  html.js .reveal-on-scroll {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .text-reveal-word {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  .floating-card-subtle {
+    animation: none !important;
+    transform: none !important;
+  }
+  .scroll-progress-bar {
+    display: none !important;
+  }
+}
+
+[data-reduced-motion='true'] *,
+[data-reduced-motion='true'] *::before,
+[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+[data-reduced-motion='true'] .reveal-on-scroll,
+html.js [data-reduced-motion='true'] .reveal-on-scroll {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+[data-reduced-motion='true'] .text-reveal-word {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+[data-reduced-motion='true'] .floating-card-subtle {
+  animation: none !important;
+  transform: none !important;
+}
+
+[data-reduced-motion='true'] .scroll-progress-bar {
+  display: none !important;
+}

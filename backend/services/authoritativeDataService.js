@@ -11,7 +11,8 @@ import crypto from 'node:crypto';
 import db from '../db/database.js';
 import * as mysql from '../db/mysql.js';
 import * as mysqlDataService from './mysqlDataService.js';
-import * as supabaseService from './supabaseService.js';
+// Supabase removed - purely Hostinger MySQL authoritative & local SQLite fallback
+const supabaseService = { isSupabaseConfigured: () => false };
 import * as salesService from './salesService.js';
 import * as expenseService from './expenseService.js';
 import * as stockService from './stockService.js';
