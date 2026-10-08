@@ -71,27 +71,12 @@ export default function AuthScreen({ onAuthSuccess }) {
 
     const cleanUsername = username.trim();
     if (!cleanUsername) {
-      setError('Username is required.');
-      return;
-    }
-
-    if (cleanUsername.length < 3 || cleanUsername.length > 50) {
-      setError('Username must be between 3 and 50 characters.');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
-      setError('Username can only contain letters, numbers, and underscores.');
+      setError('Please enter a username.');
       return;
     }
 
     if (!password) {
-      setError('Password is required.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError('Please enter a password.');
       return;
     }
 
@@ -269,7 +254,7 @@ export default function AuthScreen({ onAuthSuccess }) {
                   setUnlocked(true);
                   setPassword(e.target.value);
                 }}
-                placeholder="Enter password (min 6 chars)"
+                placeholder="Enter password"
                 style={{ ...styles.input, paddingRight: '42px' }}
                 disabled={loading}
                 required

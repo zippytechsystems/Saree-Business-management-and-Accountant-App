@@ -121,29 +121,18 @@ function recordLoginSuccess(key) {
  * Sign up a new business owner
  */
 export function signupUser({ username, password, confirm_password, confirmPassword }) {
-  if (!username || typeof username !== 'string') {
+  if (!username || typeof username !== 'string' || !username.trim()) {
     throw new Error('Username is required.');
   }
 
   const cleanUsername = username.trim();
-  if (cleanUsername.length < 3 || cleanUsername.length > 50) {
-    throw new Error('Username must be between 3 and 50 characters.');
-  }
 
-  if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
-    throw new Error('Username can only contain letters, numbers, and underscores.');
-  }
-
-  const confirm = confirm_password || confirmPassword;
-  if (!password || typeof password !== 'string') {
+  const confirm = confirm_password !== undefined ? confirm_password : confirmPassword;
+  if (!password || typeof password !== 'string' || password.length === 0) {
     throw new Error('Password is required.');
   }
 
-  if (password.length < 6) {
-    throw new Error('Password must be at least 6 characters long.');
-  }
-
-  if (password !== confirm) {
+  if (confirm !== undefined && password !== confirm) {
     throw new Error('Password and confirmation password do not match.');
   }
 

@@ -98,27 +98,27 @@ async function runTests() {
   assert('API 404 body does not contain HTML <!DOCTYPE', !res404.raw.includes('<!DOCTYPE'), 'contained HTML');
   assert('API 404 JSON has success=false and useful error', res404.json?.success === false && Boolean(res404.json?.error));
 
-  // TEST 2: Signup with missing/short username returns HTTP 400 JSON
-  console.log('\n--- Test 2: Validating username constraints ---');
-  const resShortUser = await makeRequest('POST', '/api/auth/signup', {
-    username: 'ab',
+  // TEST 2: Signup with empty username returns HTTP 400 JSON
+  console.log('\n--- Test 2: Validating empty username check ---');
+  const resEmptyUser = await makeRequest('POST', '/api/auth/signup', {
+    username: '',
     password: testPass,
     confirmPassword: testPass,
   });
-  assert('Short username returns HTTP 400', resShortUser.statusCode === 400, `got ${resShortUser.statusCode}`);
-  assert('Short username returns JSON', resShortUser.isJson, resShortUser.raw);
-  assert('Error message mentions username length', resShortUser.json?.error.includes('between 3 and 50 characters'));
+  assert('Empty username returns HTTP 400', resEmptyUser.statusCode === 400, `got ${resEmptyUser.statusCode}`);
+  assert('Empty username returns JSON', resEmptyUser.isJson, resEmptyUser.raw);
+  assert('Error message mentions username required', resEmptyUser.json?.error.includes('Username is required'));
 
-  // TEST 3: Signup with short password returns HTTP 400 JSON
-  console.log('\n--- Test 3: Validating password length constraints ---');
-  const resShortPass = await makeRequest('POST', '/api/auth/signup', {
+  // TEST 3: Signup with empty password returns HTTP 400 JSON
+  console.log('\n--- Test 3: Validating empty password check ---');
+  const resEmptyPass = await makeRequest('POST', '/api/auth/signup', {
     username: testOwner,
-    password: '123',
-    confirmPassword: '123',
+    password: '',
+    confirmPassword: '',
   });
-  assert('Short password returns HTTP 400', resShortPass.statusCode === 400, `got ${resShortPass.statusCode}`);
-  assert('Short password returns JSON', resShortPass.isJson, resShortPass.raw);
-  assert('Error message mentions password length', resShortPass.json?.error.includes('at least 6 characters'));
+  assert('Empty password returns HTTP 400', resEmptyPass.statusCode === 400, `got ${resEmptyPass.statusCode}`);
+  assert('Empty password returns JSON', resEmptyPass.isJson, resEmptyPass.raw);
+  assert('Error message mentions password required', resEmptyPass.json?.error.includes('Password is required'));
 
   // TEST 4: Signup with mismatched passwords returns HTTP 400 JSON
   console.log('\n--- Test 4: Validating password confirmation match ---');

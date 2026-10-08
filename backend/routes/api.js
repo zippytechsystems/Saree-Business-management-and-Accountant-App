@@ -93,31 +93,10 @@ router.post('/auth/signup', async (req, res) => {
       });
     }
 
-    if (cleanUsername.length < 3 || cleanUsername.length > 50) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username must be between 3 and 50 characters.',
-      });
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username can only contain letters, numbers, and underscores.',
-      });
-    }
-
-    if (!password || typeof password !== 'string') {
+    if (!password || typeof password !== 'string' || password.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Password is required.',
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: 'Password must be at least 6 characters long.',
       });
     }
 

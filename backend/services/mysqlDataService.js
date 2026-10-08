@@ -19,27 +19,16 @@ import { getCurrentMonthString } from './calculationService.js';
 // ============================================================================
 
 export async function signupUser({ username, password, confirmPassword, confirm_password }) {
-  if (!username || typeof username !== 'string') {
+  if (!username || typeof username !== 'string' || !username.trim()) {
     const err = new Error('Username is required.');
     err.statusCode = 400;
     throw err;
   }
 
   const cleanUsername = username.trim();
-  if (cleanUsername.length < 3 || cleanUsername.length > 50) {
-    const err = new Error('Username must be between 3 and 50 characters.');
-    err.statusCode = 400;
-    throw err;
-  }
 
-  if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
-    const err = new Error('Username can only contain letters, numbers, and underscores.');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    const err = new Error('Password must be at least 6 characters long.');
+  if (!password || typeof password !== 'string' || password.length === 0) {
+    const err = new Error('Password is required.');
     err.statusCode = 400;
     throw err;
   }
