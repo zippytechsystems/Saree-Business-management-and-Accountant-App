@@ -42,9 +42,18 @@ router.get('/health', async (req, res) => {
     let mysqlStatus = null;
     if (isMySQL) {
       mysqlStatus = await mysql.getMySQLStatus();
+    } else {
+      const connCheck = await mysql.testMySQLConnection();
+      mysqlStatus = {
+        status: 'unconfigured',
+        engine: 'Hostinger MySQL',
+        configured: false,
+        note: connCheck.error || 'Please configure DB_USER, DB_PASSWORD, and DB_NAME in Hostinger hPanel environment variables.',
+      };
     }
     const isMySQLConnected = isMySQL && mysqlStatus?.status === 'connected';
-    res.json({
+    const cfg = mysql.getMySQLConfig();
+    res.status(200).json({
       success: true,
       app: 'Business Management & Accountant Management App',
       hosting: 'Hostinger Production Environment',
@@ -53,7 +62,7 @@ router.get('/health', async (req, res) => {
         ...dbStatus,
         mode: isMySQLConnected ? 'hostinger_mysql_authoritative' : 'hostinger_authoritative',
         engine: isMySQLConnected
-          ? 'Hostinger MySQL Database (127.0.0.1:3306)'
+          ? `Hostinger MySQL Database (${cfg.host}:${cfg.port})`
           : 'Hostinger Enterprise SQLite (WAL Mode)',
         mysql_configured: isMySQL,
         mysql_connected: isMySQLConnected,
@@ -70,21 +79,72 @@ router.get('/health', async (req, res) => {
 // AUTHENTICATION ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
-// Sign Up
+// Sign Up (Create Owner Account)
 router.post('/auth/signup', async (req, res) => {
   try {
-    const { username, password, confirmPassword } = req.body;
-    const result = await authoritativeDataService.signupUserAuthoritative({ username, password, confirmPassword });
+    const { username, password, confirmPassword, confirm_password } = req.body || {};
+    const cleanUsername = (username || '').trim();
+    const effectiveConfirm = confirmPassword !== undefined ? confirmPassword : confirm_password;
+
+    if (!cleanUsername) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username is required.',
+      });
+    }
+
+    if (cleanUsername.length < 3 || cleanUsername.length > 50) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username must be between 3 and 50 characters.',
+      });
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username can only contain letters, numbers, and underscores.',
+      });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Password is required.',
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 6 characters long.',
+      });
+    }
+
+    if (effectiveConfirm !== undefined && password !== effectiveConfirm) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password and confirmation password do not match.',
+      });
+    }
+
+    const result = await authoritativeDataService.signupUserAuthoritative({
+      username: cleanUsername,
+      password,
+      confirmPassword: effectiveConfirm,
+    });
+
     res.status(201).json({
       success: true,
       message: 'Account created successfully',
       token: result.token,
       user: result.user,
       business_profile: result.business_profile || null,
-      needs_profile: result.needs_profile,
+      needs_profile: Boolean(result.needs_profile),
     });
   } catch (error) {
-    handleError(res, error, 400);
+    const status = error.statusCode || (error.message?.includes('already taken') ? 409 : 400);
+    handleError(res, error, status);
   }
 });
 

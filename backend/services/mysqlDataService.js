@@ -18,101 +18,122 @@ import { getCurrentMonthString } from './calculationService.js';
 // 1. AUTHENTICATION & BUSINESS PROFILE
 // ============================================================================
 
-export async function signupUser({ username, password, confirmPassword }) {
-  if (!username || typeof username !== 'string' || username.trim().length < 3) {
-    throw new Error('Username must be at least 3 characters long.');
-  }
-
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    throw new Error('Password must be at least 6 characters long.');
-  }
-
-  if (confirmPassword !== undefined && password !== confirmPassword) {
-    throw new Error('Passwords do not match.');
+export async function signupUser({ username, password, confirmPassword, confirm_password }) {
+  if (!username || typeof username !== 'string') {
+    const err = new Error('Username is required.');
+    err.statusCode = 400;
+    throw err;
   }
 
   const cleanUsername = username.trim();
-
-  // Check unique username in MySQL
-  const [existing] = await mysql.query(
-    'SELECT id FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1',
-    [cleanUsername]
-  );
-
-  if (existing.length > 0) {
-    throw new Error(`Username "${cleanUsername}" is already taken. Please choose another.`);
+  if (cleanUsername.length < 3 || cleanUsername.length > 50) {
+    const err = new Error('Username must be between 3 and 50 characters.');
+    err.statusCode = 400;
+    throw err;
   }
 
-  const passwordHash = hashPassword(password);
-  const [insertResult] = await mysql.query(
-    'INSERT INTO users (username, password_hash, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
-    [cleanUsername, passwordHash]
-  );
+  if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+    const err = new Error('Username can only contain letters, numbers, and underscores.');
+    err.statusCode = 400;
+    throw err;
+  }
 
-  const userId = Number(insertResult.insertId);
-  const user = { id: userId, username: cleanUsername };
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    const err = new Error('Password must be at least 6 characters long.');
+    err.statusCode = 400;
+    throw err;
+  }
 
-  // Mirror to SQLite if available
-  try {
-    const existingSqlite = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-    if (!existingSqlite) {
-      db.prepare('INSERT OR REPLACE INTO users (id, username, password_hash) VALUES (?, ?, ?)').run(
-        userId,
-        cleanUsername,
-        passwordHash
-      );
-    }
-  } catch (e) {}
+  const confirm = confirmPassword !== undefined ? confirmPassword : confirm_password;
+  if (confirm !== undefined && password !== confirm) {
+    const err = new Error('Password and confirmation password do not match.');
+    err.statusCode = 400;
+    throw err;
+  }
 
-  // Generate session token
-  const token = generateToken(user);
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-  await mysql.query(
-    'INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, NOW())',
-    [userId, token, expiresAt]
-  );
-
-  // Mirror session to SQLite
-  try {
-    db.prepare('INSERT OR REPLACE INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(
-      userId,
-      token,
-      expiresAt.toISOString()
+  // Atomically execute user creation, session token generation, and business profile in a MySQL transaction
+  return await mysql.withTransaction(async (conn) => {
+    // 1. Check unique username with FOR UPDATE row lock
+    const [existing] = await conn.query(
+      'SELECT id FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1 FOR UPDATE',
+      [cleanUsername]
     );
-  } catch (e) {}
 
-  // Default Business Profile
-  let defaultProfile = null;
-  try {
-    const [profResult] = await mysql.query(
+    if (existing.length > 0) {
+      const err = new Error(`Username "${cleanUsername}" is already taken. Please choose another.`);
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // 2. Hash password securely using Node.js scrypt with unique salt (never plaintext)
+    const passwordHash = hashPassword(password);
+
+    // 3. Insert user record
+    const [insertResult] = await conn.query(
+      'INSERT INTO users (username, password_hash, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+      [cleanUsername, passwordHash]
+    );
+
+    const userId = Number(insertResult.insertId);
+    const user = { id: userId, username: cleanUsername };
+
+    // 4. Generate cryptographically signed session token and record in sessions table
+    const token = generateToken(user);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    await conn.query(
+      'INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, NOW())',
+      [userId, token, expiresAt]
+    );
+
+    // 5. Create default business profile in same transaction
+    const businessName = `${cleanUsername} Business`;
+    const businessAddress = 'Main Store';
+    const businessNickname = cleanUsername;
+
+    await conn.query(
       `INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, created_at, updated_at)
        VALUES (?, ?, ?, ?, NOW(), NOW())
        ON DUPLICATE KEY UPDATE updated_at = NOW()`,
-      [userId, `${cleanUsername} Business`, 'Main Store', cleanUsername]
+      [userId, businessName, businessAddress, businessNickname]
     );
 
-    defaultProfile = {
+    const defaultProfile = {
       user_id: userId,
-      business_name: `${cleanUsername} Business`,
-      business_address: 'Main Store',
-      business_nickname: cleanUsername,
+      business_name: businessName,
+      business_address: businessAddress,
+      business_nickname: businessNickname,
     };
 
-    // Mirror profile to SQLite
+    // 6. Mirror to local SQLite cache if available (non-blocking for cloud MySQL)
     try {
+      const existingSqlite = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+      if (!existingSqlite) {
+        db.prepare('INSERT OR REPLACE INTO users (id, username, password_hash) VALUES (?, ?, ?)').run(
+          userId,
+          cleanUsername,
+          passwordHash
+        );
+      }
+      db.prepare('INSERT OR REPLACE INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(
+        userId,
+        token,
+        expiresAt.toISOString()
+      );
       db.prepare(
         'INSERT OR REPLACE INTO business_profiles (user_id, business_name, business_address, business_nickname) VALUES (?, ?, ?, ?)'
-      ).run(userId, defaultProfile.business_name, defaultProfile.business_address, defaultProfile.business_nickname);
-    } catch (e) {}
-  } catch (e) {}
+      ).run(userId, businessName, businessAddress, businessNickname);
+    } catch (e) {
+      // Non-fatal SQLite mirror warning
+    }
 
-  return {
-    user,
-    token,
-    needs_profile: false,
-    business_profile: defaultProfile,
-  };
+    return {
+      user,
+      token,
+      needs_profile: false,
+      business_profile: defaultProfile,
+    };
+  });
 }
 
 export async function loginUser({ username, password, clientIp = '127.0.0.1' }) {

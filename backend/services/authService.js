@@ -153,7 +153,9 @@ export function signupUser({ username, password, confirm_password, confirmPasswo
     .get(cleanUsername);
 
   if (existing) {
-    throw new Error(`Username "${cleanUsername}" is already taken. Please choose another.`);
+    const err = new Error(`Username "${cleanUsername}" is already taken. Please choose another.`);
+    err.statusCode = 409;
+    throw err;
   }
 
   const passwordHash = hashPassword(password);

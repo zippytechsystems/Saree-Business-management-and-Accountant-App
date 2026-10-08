@@ -9,25 +9,45 @@ const __dirname = path.dirname(__filename);
 let pool = null;
 
 /**
+ * Clean database identifier from accidental whitespace or hPanel UI copy-paste strings
+ * (e.g. strips accidental "1 MB", "(1 MB)", "0.00 MB", or quotes)
+ */
+export function cleanDbIdentifier(val) {
+  if (!val || typeof val !== 'string') return '';
+  let cleaned = val.trim();
+  // Strip accidental copy-paste of hPanel storage sizes (e.g., "u123456_db 1 MB", "u123456_db (0.00 MB)")
+  cleaned = cleaned.replace(/\s*\(?\d+(\.\d+)?\s*(MB|KB|GB|B)\)?\s*$/i, '').trim();
+  // Strip accidental quotes if user wrapped value in .env
+  cleaned = cleaned.replace(/^['"]|['"]$/g, '').trim();
+  return cleaned;
+}
+
+/**
  * Resolve database configuration from environment variables
  * Designed for 100% Hostinger compatibility (127.0.0.1:3306 on server)
+ * Reads strictly from DB_* or MYSQL_* environment variables.
+ * Does NOT default user to 'root' or database to default name.
  */
 export function getMySQLConfig() {
-  const host = process.env.DB_HOST || process.env.MYSQL_HOST || '127.0.0.1';
+  const host = (process.env.DB_HOST || process.env.MYSQL_HOST || '127.0.0.1').trim();
   const port = Number(process.env.DB_PORT || process.env.MYSQL_PORT || 3306);
-  const user = process.env.DB_USER || process.env.MYSQL_USER || 'root';
+  const rawUser = process.env.DB_USER || process.env.MYSQL_USER || '';
+  const user = cleanDbIdentifier(rawUser);
   const password = process.env.DB_PASSWORD !== undefined
     ? process.env.DB_PASSWORD
     : (process.env.MYSQL_PASSWORD !== undefined ? process.env.MYSQL_PASSWORD : '');
-  const database = process.env.DB_NAME || process.env.DB_DATABASE || process.env.MYSQL_DATABASE || 'saree_business_db';
+  const rawDatabase = process.env.DB_NAME || process.env.DB_DATABASE || process.env.MYSQL_DATABASE || '';
+  const database = cleanDbIdentifier(rawDatabase);
 
+  const isRoot = user.toLowerCase() === 'root';
+  const allowRoot = process.env.ALLOW_LOCAL_ROOT === 'true';
+
+  // Strictly require user, database, and password. Connecting as 'root' is not allowed on Hostinger.
   const isConfigured = Boolean(
-    process.env.DB_NAME ||
-    process.env.DB_USER ||
-    process.env.MYSQL_DATABASE ||
-    process.env.MYSQL_USER ||
-    process.env.CLOUD_BACKUP_PROVIDER === 'hostinger_mysql' ||
-    process.env.CLOUD_BACKUP_PROVIDER === 'mysql'
+    user &&
+    database &&
+    (!isRoot || allowRoot) &&
+    (password || allowRoot)
   );
 
   return {
@@ -37,7 +57,7 @@ export function getMySQLConfig() {
     password,
     database,
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
     queueLimit: 0,
     charset: 'utf8mb4',
     enableKeepAlive: true,
@@ -50,9 +70,8 @@ export function getMySQLConfig() {
  * Determine if MySQL is configured and should be authoritative
  */
 export function isMySQLConfigured() {
-  // If explicitly configured in .env or default host/db is present
   const cfg = getMySQLConfig();
-  return Boolean(cfg.database && cfg.user);
+  return cfg.isConfigured;
 }
 
 /**
@@ -61,6 +80,14 @@ export function isMySQLConfigured() {
 export function getPool() {
   if (!pool) {
     const config = getMySQLConfig();
+    if (!config.isConfigured) {
+      let reason = 'Hostinger MySQL is not configured. Missing required environment variables (DB_USER, DB_PASSWORD, DB_NAME).';
+      if (config.user && config.user.toLowerCase() === 'root') {
+        reason = "Connecting as 'root' is not permitted on Hostinger. Please use the dedicated MySQL database user created in hPanel (e.g. u123456789_user) and configure DB_USER.";
+      }
+      throw new Error(reason);
+    }
+
     pool = mysql.createPool({
       host: config.host,
       port: config.port,
@@ -79,15 +106,33 @@ export function getPool() {
 }
 
 /**
- * Test MySQL connection
+ * Test MySQL connection without leaking credentials
  */
 export async function testMySQLConnection() {
+  const cfg = getMySQLConfig();
+  if (!cfg.isConfigured) {
+    let reason = 'Hostinger MySQL credentials missing. Please set DB_USER, DB_PASSWORD, and DB_NAME in environment variables.';
+    if (cfg.user && cfg.user.toLowerCase() === 'root') {
+      reason = "Connecting as 'root' is not permitted on Hostinger. Please create a dedicated MySQL user in hPanel (e.g. u123456789_user) and set DB_USER.";
+    }
+    return {
+      connected: false,
+      configured: false,
+      host: cfg.host,
+      port: cfg.port,
+      database: cfg.database || null,
+      user: cfg.user || null,
+      error: reason,
+      code: 'NOT_CONFIGURED',
+    };
+  }
+
   try {
     const p = getPool();
     const [rows] = await p.query('SELECT 1 as is_alive, NOW() as server_time, VERSION() as version');
-    const cfg = getMySQLConfig();
     return {
       connected: true,
+      configured: true,
       host: cfg.host,
       port: cfg.port,
       database: cfg.database,
@@ -96,14 +141,15 @@ export async function testMySQLConnection() {
       server_time: rows[0]?.server_time || new Date().toISOString(),
     };
   } catch (error) {
-    const cfg = getMySQLConfig();
     return {
       connected: false,
+      configured: true,
       host: cfg.host,
       port: cfg.port,
       database: cfg.database,
+      user: cfg.user,
       error: error.message,
-      code: error.code,
+      code: error.code || 'CONNECTION_FAILED',
     };
   }
 }
@@ -122,6 +168,32 @@ export async function query(sql, params = []) {
 export async function execute(sql, params = []) {
   const p = getPool();
   return p.execute(sql, params);
+}
+
+/**
+ * Execute callback within a database transaction.
+ * Automatically commits on success, rolls back on error, and releases connection back to the pool.
+ * @param {Function} callback - async (connection) => Promise<T>
+ * @returns {Promise<T>}
+ */
+export async function withTransaction(callback) {
+  const p = getPool();
+  const conn = await p.getConnection();
+  try {
+    await conn.beginTransaction();
+    const result = await callback(conn);
+    await conn.commit();
+    return result;
+  } catch (error) {
+    try {
+      await conn.rollback();
+    } catch (rbError) {
+      console.error('[MySQL Transaction] Rollback failed:', rbError.message);
+    }
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 /**
@@ -198,6 +270,7 @@ export default {
   getPool,
   query,
   execute,
+  withTransaction,
   testMySQLConnection,
   initMySQLSchema,
   getMySQLStatus,

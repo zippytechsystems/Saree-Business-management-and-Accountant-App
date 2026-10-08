@@ -189,7 +189,18 @@ try {
 // 6. Routes with API Rate Limiting
 app.use('/api', globalApiLimiter, apiRoutes);
 
-// Root informational endpoint for Render / API consumers
+// Dedicated JSON 404 handler for ALL unhandled /api requests (GET, POST, PUT, DELETE, etc.)
+// Prevents Express from ever falling back to an HTML error page for API consumers
+app.all('/api/*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `API endpoint '${req.method} ${req.originalUrl}' not found.`,
+    path: req.originalUrl,
+    method: req.method,
+  });
+});
+
+// Root informational endpoint for API consumers & uptime monitors
 app.get('/', (req, res, next) => {
   const indexPath = path.join(distPath, 'index.html');
   res.sendFile(indexPath, (err) => {
@@ -221,18 +232,37 @@ app.use(
 
 // SPA Fallback for client-side routing
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
-    if (err) next();
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({
+      success: false,
+      error: `API endpoint '${req.method} ${req.originalUrl}' not found.`,
+      path: req.originalUrl,
+      method: req.method,
+    });
+  }
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      res.status(200).json({
+        status: 'online',
+        service: 'Saree Business Management & Accountant Backend API',
+        health: '/api/health',
+        notice: 'Frontend dist/index.html not found. Please run "npm run build".',
+      });
+    }
   });
 });
 
-// 8. Production Error Handler (Zero stack trace exposure)
+// 8. Production Error Handler (Zero stack trace exposure, always JSON for /api)
 app.use((err, req, res, next) => {
-  res.status(500).json({
+  const isApi = req.path.startsWith('/api');
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
     success: false,
-    error: 'Internal Server Error',
-    message: 'An unexpected internal error occurred. Please try again.',
+    error: isApi ? (err.message || 'Internal Server Error') : 'Internal Server Error',
+    message: isApi
+      ? 'An error occurred while processing the API request.'
+      : 'An unexpected internal error occurred. Please try again.',
   });
 });
 
@@ -260,10 +290,16 @@ app.listen(PORT, async () => {
       console.error('[Hostinger MySQL] Schema initialization error:', err.message);
     }
   } else {
+    const cfg = mysql.getMySQLConfig();
     console.log('================================================================');
     console.log(`[Hostinger Server] ✓ App active on Hostinger (Port: ${PORT})`);
-    console.log('[Hostinger Database] ✓ Standalone SQLite database operational at data/app.db (WAL Mode)');
-    console.log('[Hostinger Database] Mode: hostinger_authoritative (100% Server Persistent)');
+    if (cfg.user && cfg.user.toLowerCase() === 'root') {
+      console.warn("[Hostinger MySQL] Notice: 'root' user is not permitted on Hostinger MySQL. Please create a user in hPanel.");
+    } else {
+      console.log('[Hostinger MySQL] Notice: MySQL credentials (DB_USER, DB_PASSWORD, DB_NAME) not yet configured.');
+    }
+    console.log('[Hostinger Database] ✓ Resilient local SQLite database operational at data/app.db (WAL Mode)');
+    console.log('[Hostinger Database] Mode: hostinger_authoritative');
     console.log('================================================================');
   }
 });

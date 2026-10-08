@@ -24,10 +24,10 @@ export function removeAuthToken() {
 }
 
 export async function apiRequest(endpoint, options = {}) {
-  let url = endpoint;
+  let url = endpoint || '';
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    if (!url.startsWith('/api') && !url.startsWith('/')) {
-      url = `/api/${url}`;
+    if (!url.startsWith('/api')) {
+      url = `/api${url.startsWith('/') ? '' : '/'}${url}`;
     }
     if (API_BASE) {
       if (API_BASE.endsWith('/api') && url.startsWith('/api')) {
@@ -61,9 +61,39 @@ export async function apiRequest(endpoint, options = {}) {
   let data;
   const contentType = response.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
-    data = await response.json();
+    try {
+      data = await response.json();
+    } catch (parseErr) {
+      throw new Error(`Failed to parse JSON response from ${url}: ${parseErr.message}`);
+    }
   } else {
-    data = await response.text();
+    const rawText = await response.text();
+    const trimmed = (rawText || '').trim();
+    if (trimmed.startsWith('<') || contentType.includes('text/html')) {
+      const titleMatch = trimmed.match(/<title>([^<]*)<\/title>/i);
+      const h1Match = trimmed.match(/<h1>([^<]*)<\/h1>/i);
+      const title = (titleMatch && titleMatch[1]) || (h1Match && h1Match[1]) || '';
+      const err = new Error(
+        `Server returned an HTML response (${response.status} ${response.statusText}${title ? ': ' + title.trim() : ''}) instead of JSON. Expected JSON from ${url}.`
+      );
+      err.status = response.status;
+      err.isHtml = true;
+      throw err;
+    }
+
+    if (!trimmed) {
+      data = {};
+    } else {
+      try {
+        data = JSON.parse(trimmed);
+      } catch {
+        const err = new Error(
+          `Server returned non-JSON response (${response.status} ${response.statusText}): "${trimmed.slice(0, 100)}"`
+        );
+        err.status = response.status;
+        throw err;
+      }
+    }
   }
 
   if (!response.ok) {

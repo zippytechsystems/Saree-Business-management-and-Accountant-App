@@ -14,11 +14,15 @@ RedirectMatch 404 ^/(data|backend|\.env|ecosystem\.config\.cjs|package\.json)(/|
   RewriteEngine On
   RewriteBase /
 
-  # Allow direct access to existing physical static files (e.g., in dist/assets)
+  # 2. API REQUESTS: Never rewrite /api/* to index.html (let Node.js handle them)
+  RewriteCond %{REQUEST_URI} ^/api [NC]
+  RewriteRule ^ - [L]
+
+  # 3. Allow direct access to existing physical static files (e.g., in dist/assets)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Route all other frontend requests to the index.html SPA
+  # 4. Route all remaining frontend page requests to the index.html SPA
   RewriteRule ^ dist/index.html [L]
 </IfModule>

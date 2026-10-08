@@ -13,6 +13,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import Button from '../components/common/Button';
+import { apiPost, setAuthToken } from '../utils/api';
 
 export default function AuthScreen({ onAuthSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -74,6 +75,16 @@ export default function AuthScreen({ onAuthSuccess }) {
       return;
     }
 
+    if (cleanUsername.length < 3 || cleanUsername.length > 50) {
+      setError('Username must be between 3 and 50 characters.');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+      setError('Username can only contain letters, numbers, and underscores.');
+      return;
+    }
+
     if (!password) {
       setError('Password is required.');
       return;
@@ -85,7 +96,7 @@ export default function AuthScreen({ onAuthSuccess }) {
     }
 
     if (isSignUp && password !== confirmPassword) {
-      setError('Confirm password does not match.');
+      setError('Password and confirmation password do not match.');
       return;
     }
 
@@ -97,23 +108,18 @@ export default function AuthScreen({ onAuthSuccess }) {
         ? { username: cleanUsername, password, confirmPassword }
         : { username: cleanUsername, password };
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      // apiPost validates same-origin URL, sets headers, verifies content-type,
+      // and guarantees JSON parsing without crashing on HTML
+      const data = await apiPost(endpoint, payload);
 
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Authentication failed. Please check credentials.');
       }
 
       // Store session token in sessionStorage for maximum privacy & secrecy
       // When the browser tab or app is closed, session is automatically cleared!
       if (data.token) {
-        sessionStorage.setItem('auth_token', data.token);
-        localStorage.removeItem('auth_token');
+        setAuthToken(data.token, false);
       }
 
       if (onAuthSuccess) {
@@ -123,7 +129,11 @@ export default function AuthScreen({ onAuthSuccess }) {
         });
       }
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred.');
+      let displayMsg = err.message || 'An unexpected error occurred.';
+      if (err.isHtml) {
+        displayMsg = `Hostinger server returned an HTML error page (${err.status || 500}). Please ensure the Node.js application is active on Hostinger.`;
+      }
+      setError(displayMsg);
     } finally {
       setLoading(false);
     }

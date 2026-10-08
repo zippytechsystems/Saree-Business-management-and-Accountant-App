@@ -10,8 +10,8 @@ This application connects directly to a **Hostinger MySQL Database** as the auth
 1. Log into your **Hostinger hPanel**.
 2. Navigate to **Databases** ➔ **MySQL Databases**.
 3. Under **Create a New MySQL Database and Database User**:
-   - **MySQL Database Name**: e.g., `u123456789_saree_db`
-   - **MySQL Username**: e.g., `u123456789_admin`
+   - **MySQL Database Name**: e.g., `u123456789_saree_db` (Note: enter only the database name, do NOT include any displayed storage size like "1 MB" or "0.00 MB")
+   - **MySQL Username**: e.g., `u123456789_admin` (Do NOT connect as 'root')
    - **Password**: Generate or enter a strong password (keep this safe)
 4. Click **Create**.
 5. Note the full database name and username (Hostinger prefixes them with your account ID, e.g., `u123456789_`).
@@ -65,6 +65,8 @@ DB_NAME=u123456789_your_db
 > [!IMPORTANT]
 > - Always use `DB_HOST=127.0.0.1` (or `localhost`) on Hostinger so the Node.js backend connects directly via localhost socket/port.
 > - Hostinger blocks remote external MySQL connections by default, but local connections (`127.0.0.1:3306`) from Node.js running on the same server are fully enabled and fast.
+> - Never connect as `root`. Hostinger assigns each user a unique database user prefixed with your account id (e.g., `u123456789_admin`).
+> - Enter only the actual database name in `DB_NAME`. Do not include any displayed storage size such as "1 MB".
 > - Never expose your MySQL credentials to frontend browser code.
 
 ---
@@ -75,9 +77,9 @@ DB_NAME=u123456789_your_db
 1. In **hPanel** ➔ **Websites** ➔ **Manage** ➔ **Node.js**:
    - **Node.js Version**: Select `20.x` or `22.x` (LTS recommended)
    - **Application Mode**: `Production`
-   - **Application Root**: `public_html` (or your chosen directory)
-   - **Application Startup File**: `backend/server.js`
-2. Upload the project files to your application directory.
+   - **Application Root**: `public_html` (or repository root)
+   - **Application Startup File**: `server.js` (or `backend/server.js`)
+2. Upload or Git pull the project files to your application directory.
 3. Build the frontend:
    ```bash
    npm run build
