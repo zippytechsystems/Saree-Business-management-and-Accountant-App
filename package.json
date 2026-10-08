@@ -3,12 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "server.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "client": "vite",
-    "server": "node --no-warnings=ExperimentalWarning backend/server.js",
-    "start": "node --no-warnings=ExperimentalWarning backend/server.js",
-    "build": "cross-env NODE_ENV=production vite build",
+    "server": "node --no-warnings=ExperimentalWarning server.js",
+    "start": "node --no-warnings=ExperimentalWarning server.js",
+    "build": "vite build",
     "preview": "vite preview",
     "migrate:mysql": "node scripts/migrate_sqlite_to_mysql.js",
     "export:mysql": "node scripts/export_sqlite_to_mysql_dump.js"
