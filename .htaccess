@@ -9,26 +9,13 @@ RedirectMatch 404 ^/(data|backend|\.env|ecosystem\.config\.cjs|package\.json)(/|
   Require all denied
 </FilesMatch>
 
-# 2. SPA CLIENT ROUTING
+# 2. Allow direct access to existing physical static files (e.g. dist/assets)
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # 2. API REQUESTS: Proxy to Node.js backend (port 3000) if Apache proxy module is enabled
-  <IfModule mod_proxy.c>
-    RewriteCond %{REQUEST_URI} ^/api [NC]
-    RewriteRule ^api/(.*)$ http://127.0.0.1:3000/api/$1 [P,L]
-  </IfModule>
-
-  # Prevent rewriting /api/* to index.html
-  RewriteCond %{REQUEST_URI} ^/api [NC]
-  RewriteRule ^ - [L]
-
-  # 3. Allow direct access to existing physical static files (e.g., in dist/assets)
+  # Allow direct access to existing static files and directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
-
-  # 4. Route all remaining frontend page requests to the index.html SPA
-  RewriteRule ^ dist/index.html [L]
 </IfModule>
