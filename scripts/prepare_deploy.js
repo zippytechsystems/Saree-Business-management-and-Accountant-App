@@ -76,8 +76,13 @@ copyDir(path.join(rootDir, 'dist'), path.join(stagingDir, 'dist'));
 const filesToCopy = [
   'package.json',
   '.htaccess',
+  'server.js',
+  'app.js',
+  'index.js',
+  'loader.cjs',
   'ecosystem.config.cjs',
   'HOSTINGER_DEPLOY_GUIDE.md',
+  'DEPLOYMENT.md',
 ];
 
 for (const file of filesToCopy) {
