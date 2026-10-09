@@ -34,11 +34,8 @@ function AppInner() {
 
   // Verify and restore authenticated session on app launch
   const checkSession = async () => {
-    // Read from sessionStorage ONLY for maximum privacy.
-    // When the browser tab/app is closed, session is cleared automatically!
-    const token = sessionStorage.getItem('auth_token');
-    // Wipe legacy localStorage token to prevent unauthorized access
-    localStorage.removeItem('auth_token');
+    // Read from localStorage (fallback to sessionStorage) for persistent multi-device login
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
 
     if (!token) {
       setAuthState({
@@ -101,6 +98,11 @@ function AppInner() {
   }, []);
 
   const handleAuthSuccess = (data) => {
+    if (data.token) {
+      localStorage.setItem('auth_token', data.token);
+      sessionStorage.setItem('auth_token', data.token);
+    }
+
     const profile = data.business_profile || {
       business_name: `${data.user?.username || 'Saree'} Business ERP`,
       business_nickname: data.user?.username || 'Saree Shop',

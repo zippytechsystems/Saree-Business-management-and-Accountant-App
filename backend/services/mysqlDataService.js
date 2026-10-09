@@ -119,7 +119,7 @@ export async function signupUser({ username, password, confirmPassword, confirm_
     return {
       user,
       token,
-      needs_profile: false,
+      needs_profile: true,
       business_profile: defaultProfile,
     };
   });

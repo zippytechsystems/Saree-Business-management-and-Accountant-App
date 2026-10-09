@@ -11,7 +11,7 @@ export function getAuthToken() {
   return sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token') || null;
 }
 
-export function setAuthToken(token, persist = false) {
+export function setAuthToken(token, persist = true) {
   if (persist) {
     localStorage.setItem('auth_token', token);
   }

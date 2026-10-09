@@ -68,8 +68,8 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
           <div style={styles.iconCircle}>
             <Building2 size={30} color="#2563eb" />
           </div>
-          <h1 style={styles.title}>Welcome to Business Management</h1>
-          <p style={styles.subtitle}>Complete your business profile to get started</p>
+          <h1 style={styles.title}>Step 2: Business Account Setup</h1>
+          <p style={styles.subtitle}>Enter your shop &amp; business details to launch your isolated cloud dashboard</p>
         </div>
 
         {error && (

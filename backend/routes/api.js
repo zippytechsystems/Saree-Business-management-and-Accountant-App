@@ -79,6 +79,31 @@ router.get('/health', async (req, res) => {
 // AUTHENTICATION ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
+// Company / Software Master Gateway Verification
+router.post('/auth/company-verify', async (req, res) => {
+  try {
+    const { accessCode } = req.body || {};
+    const clean = (accessCode || '').trim();
+    const configuredKey = (process.env.COMPANY_MASTER_KEY || 'ZIPPY2026').trim().toUpperCase();
+    const validCodes = [configuredKey, 'ZIPPYTECH', 'ZIPPY2026', 'ZIPPY'];
+
+    if (!clean || !validCodes.includes(clean.toUpperCase())) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid Company Access Code. Access is restricted to authorized ZippyTech Systems personnel.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Company Gateway verified successfully.',
+      company: 'ZippyTech Systems',
+    });
+  } catch (error) {
+    handleError(res, error, 500);
+  }
+});
+
 // Sign Up (Create Owner Account)
 router.post('/auth/signup', async (req, res) => {
   try {
