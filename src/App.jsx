@@ -8,6 +8,7 @@ import Skeleton from './components/common/Skeleton';
 // Lazy-loaded Auth & Setup Screens
 const AuthScreen = lazy(() => import('./screens/AuthScreen'));
 const BusinessProfileScreen = lazy(() => import('./screens/BusinessProfileScreen'));
+const ShopCodeLockScreen = lazy(() => import('./components/auth/ShopCodeLockScreen'));
 
 // Lazy-loaded Core Business Screens (split into dedicated on-demand chunks)
 const DashboardScreen = lazy(() => import('./screens/DashboardScreen'));
@@ -24,6 +25,7 @@ import { useGlobalRipple } from './hooks/useGlobalRipple';
 function AppInner() {
   useGlobalRipple();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isDeviceUnlocked, setIsDeviceUnlocked] = useState(false);
   const [authState, setAuthState] = useState({
     loading: true,
     isAuthenticated: false,
@@ -45,6 +47,7 @@ function AppInner() {
         businessProfile: null,
         needsProfile: false,
       });
+      setIsDeviceUnlocked(false);
       return;
     }
 
@@ -61,6 +64,8 @@ function AppInner() {
           business_address: 'Main Store',
         };
 
+        const unlocked = sessionStorage.getItem('device_unlocked') === 'true';
+
         setAuthState({
           loading: false,
           isAuthenticated: true,
@@ -68,10 +73,12 @@ function AppInner() {
           businessProfile: profile,
           needsProfile: false, // Never block existing session with business profile setup
         });
+        setIsDeviceUnlocked(unlocked);
       } else {
         // Invalid or expired token
         sessionStorage.removeItem('auth_token');
         localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('device_unlocked');
         setAuthState({
           loading: false,
           isAuthenticated: false,
@@ -79,10 +86,12 @@ function AppInner() {
           businessProfile: null,
           needsProfile: false,
         });
+        setIsDeviceUnlocked(false);
       }
     } catch (err) {
       // In case of network failure during offline use, if a token exists, allow offline access with cached state
       console.warn('[Session] Network offline or check failed:', err.message);
+      const unlocked = sessionStorage.getItem('device_unlocked') === 'true';
       setAuthState({
         loading: false,
         isAuthenticated: true,
@@ -90,6 +99,7 @@ function AppInner() {
         businessProfile: { business_name: 'Saree Business ERP', business_nickname: 'Saree Business', business_address: 'Main Store' },
         needsProfile: false,
       });
+      setIsDeviceUnlocked(unlocked);
     }
   };
 
@@ -102,6 +112,10 @@ function AppInner() {
       localStorage.setItem('auth_token', data.token);
       sessionStorage.setItem('auth_token', data.token);
     }
+
+    // Explicit login unlocks the device for this active session
+    sessionStorage.setItem('device_unlocked', 'true');
+    setIsDeviceUnlocked(true);
 
     const profile = data.business_profile || {
       business_name: `${data.user?.username || 'Saree'} Business ERP`,
@@ -124,6 +138,8 @@ function AppInner() {
   };
 
   const handleProfileComplete = (profileData) => {
+    sessionStorage.setItem('device_unlocked', 'true');
+    setIsDeviceUnlocked(true);
     setAuthState((prev) => ({
       ...prev,
       businessProfile: profileData,
@@ -142,6 +158,8 @@ function AppInner() {
     }
     sessionStorage.removeItem('auth_token');
     localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('device_unlocked');
+    setIsDeviceUnlocked(false);
     setAuthState({
       loading: false,
       isAuthenticated: false,
@@ -149,6 +167,17 @@ function AppInner() {
       businessProfile: null,
       needsProfile: false,
     });
+    setActiveTab('dashboard');
+  };
+
+  const handleQuickLock = () => {
+    sessionStorage.removeItem('device_unlocked');
+    setIsDeviceUnlocked(false);
+  };
+
+  const handleShopCodeUnlock = () => {
+    sessionStorage.setItem('device_unlocked', 'true');
+    setIsDeviceUnlocked(true);
     setActiveTab('dashboard');
   };
 
@@ -210,7 +239,24 @@ function AppInner() {
     );
   }
 
-  // 4. Authenticated with profile: Show main application
+  // 4. Authenticated device session exists, but locked for phone privacy: Show Shop Code Quick Unlock
+  if (!isDeviceUnlocked) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<Skeleton.Screen />}>
+          <ShopCodeLockScreen
+            businessProfile={authState.businessProfile}
+            user={authState.user}
+            onUnlock={handleShopCodeUnlock}
+            onLogout={handleLogout}
+            onProfileUpdate={handleProfileUpdate}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  // 5. Authenticated & Unlocked: Show main application
   const renderActiveScreen = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -251,6 +297,7 @@ function AppInner() {
         businessProfile={authState.businessProfile}
         user={authState.user}
         onLogout={handleLogout}
+        onQuickLock={handleQuickLock}
       >
         <Suspense fallback={<Skeleton.Screen />}>
           <PageTransition activeKey={activeTab}>

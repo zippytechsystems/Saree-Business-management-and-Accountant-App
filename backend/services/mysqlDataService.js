@@ -245,7 +245,7 @@ export async function getBusinessProfile(userId) {
   const uid = Number(userId || 1);
   try {
     const [rows] = await mysql.query(
-      'SELECT id, user_id, business_name, business_address, business_nickname, created_at, updated_at FROM business_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT id, user_id, business_name, business_address, business_nickname, shop_code, created_at, updated_at FROM business_profiles WHERE user_id = ? LIMIT 1',
       [uid]
     );
 
@@ -257,56 +257,92 @@ export async function getBusinessProfile(userId) {
         business_name: r.business_name,
         business_address: r.business_address,
         business_nickname: r.business_nickname,
+        shop_code: r.shop_code || '',
         created_at: r.created_at,
         updated_at: r.updated_at,
       };
     }
   } catch (err) {
+    try {
+      const [rows] = await mysql.query(
+        'SELECT id, user_id, business_name, business_address, business_nickname, created_at, updated_at FROM business_profiles WHERE user_id = ? LIMIT 1',
+        [uid]
+      );
+      if (rows.length > 0) {
+        const r = rows[0];
+        return {
+          id: Number(r.id),
+          user_id: Number(r.user_id),
+          business_name: r.business_name,
+          business_address: r.business_address,
+          business_nickname: r.business_nickname,
+          shop_code: '',
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+        };
+      }
+    } catch (e2) {}
     console.warn('[MySQL Profile] Fetch failed:', err.message);
   }
 
   // Fallback to SQLite
   try {
     const p = db.prepare('SELECT * FROM business_profiles WHERE user_id = ?').get(uid);
-    if (p) return p;
+    if (p) return { ...p, shop_code: p.shop_code || '' };
   } catch (e) {}
 
   return null;
 }
 
-export async function upsertBusinessProfile(userId, { business_name, business_address, business_nickname }) {
+export async function upsertBusinessProfile(userId, { business_name, business_address, business_nickname, shop_code }) {
   const uid = Number(userId || 1);
   const name = (business_name || '').trim();
   const address = (business_address || '').trim();
   const nickname = (business_nickname || '').trim();
+  const cleanShopCode = (shop_code !== undefined ? String(shop_code) : '').trim();
 
   if (!name || !address || !nickname) {
     throw new Error('Business Name, Address, and Nickname are all required.');
   }
 
-  await mysql.query(
-    `INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NOW(), NOW())
-     ON DUPLICATE KEY UPDATE
-       business_name = VALUES(business_name),
-       business_address = VALUES(business_address),
-       business_nickname = VALUES(business_nickname),
-       updated_at = NOW()`,
-    [uid, name, address, nickname]
-  );
+  try {
+    await mysql.query(
+      `INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, shop_code, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE
+         business_name = VALUES(business_name),
+         business_address = VALUES(business_address),
+         business_nickname = VALUES(business_nickname),
+         shop_code = VALUES(shop_code),
+         updated_at = NOW()`,
+      [uid, name, address, nickname, cleanShopCode]
+    );
+  } catch (myErr) {
+    await mysql.query(
+      `INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, created_at, updated_at)
+       VALUES (?, ?, ?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE
+         business_name = VALUES(business_name),
+         business_address = VALUES(business_address),
+         business_nickname = VALUES(business_nickname),
+         updated_at = NOW()`,
+      [uid, name, address, nickname]
+    );
+  }
 
   // Mirror to SQLite
   try {
     const now = new Date().toISOString();
-    const existing = db.prepare('SELECT id FROM business_profiles WHERE user_id = ?').get(uid);
+    const existing = db.prepare('SELECT id, shop_code FROM business_profiles WHERE user_id = ?').get(uid);
+    const finalCode = cleanShopCode !== '' ? cleanShopCode : (existing?.shop_code || '');
     if (existing) {
       db.prepare(
-        'UPDATE business_profiles SET business_name = ?, business_address = ?, business_nickname = ?, updated_at = ? WHERE user_id = ?'
-      ).run(name, address, nickname, now, uid);
+        'UPDATE business_profiles SET business_name = ?, business_address = ?, business_nickname = ?, shop_code = ?, updated_at = ? WHERE user_id = ?'
+      ).run(name, address, nickname, finalCode, now, uid);
     } else {
       db.prepare(
-        'INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(uid, name, address, nickname, now, now);
+        'INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, shop_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(uid, name, address, nickname, cleanShopCode, now, now);
     }
   } catch (e) {}
 

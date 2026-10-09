@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Building2, MapPin, Tag, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Building2, MapPin, Tag, ArrowRight, ShieldCheck, AlertCircle, KeyRound, Eye, EyeOff } from 'lucide-react';
 import Button from '../components/common/Button';
 
 export default function BusinessProfileScreen({ onProfileComplete, initialProfile = null }) {
   const [businessName, setBusinessName] = useState(initialProfile?.business_name || '');
   const [businessAddress, setBusinessAddress] = useState(initialProfile?.business_address || '');
   const [businessNickname, setBusinessNickname] = useState(initialProfile?.business_nickname || '');
+  const [shopCode, setShopCode] = useState(initialProfile?.shop_code || '');
+  const [showShopCode, setShowShopCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -16,6 +18,7 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
     const cleanName = businessName.trim();
     const cleanAddress = businessAddress.trim();
     const cleanNickname = businessNickname.trim();
+    const cleanShopCode = shopCode.trim();
 
     if (!cleanName) {
       setError('Business Name is required.');
@@ -32,16 +35,30 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
       return;
     }
 
+    if (!cleanShopCode) {
+      setError('Shop Code is required for device security (e.g. 1234 or your 4-digit PIN).');
+      return;
+    }
+
+    if (cleanShopCode.length < 3) {
+      setError('Shop Code must be at least 3 characters or digits.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch('/api/business-profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || ''}`,
+        },
         body: JSON.stringify({
           business_name: cleanName,
           business_address: cleanAddress,
           business_nickname: cleanNickname,
+          shop_code: cleanShopCode,
         }),
       });
 
@@ -69,7 +86,7 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
             <Building2 size={30} color="#2563eb" />
           </div>
           <h1 style={styles.title}>Step 2: Business Account Setup</h1>
-          <p style={styles.subtitle}>Enter your shop &amp; business details to launch your isolated cloud dashboard</p>
+          <p style={styles.subtitle}>Enter your shop &amp; business details to launch your secure dashboard</p>
         </div>
 
         {error && (
@@ -88,7 +105,7 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="e.g. ABC Traders Pvt Ltd"
+                placeholder="e.g. Sri Lakshmi Sarees Pvt Ltd"
                 style={styles.input}
                 disabled={loading}
                 required
@@ -105,7 +122,7 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
                 value={businessAddress}
                 onChange={(e) => setBusinessAddress(e.target.value)}
                 placeholder="Shop number, street, city, pin code"
-                style={{ ...styles.input, minHeight: '75px', paddingTop: '10px' }}
+                style={{ ...styles.input, minHeight: '70px', paddingTop: '10px' }}
                 disabled={loading}
                 required
               />
@@ -121,13 +138,47 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
                 type="text"
                 value={businessNickname}
                 onChange={(e) => setBusinessNickname(e.target.value)}
-                placeholder="e.g. ABC Shop"
+                placeholder="e.g. Sri Lakshmi Sarees"
                 style={styles.input}
                 disabled={loading}
                 required
               />
             </div>
-            <span style={styles.helpText}>Short display name used on the dashboard & header</span>
+            <span style={styles.helpText}>Short display name used on the dashboard &amp; header</span>
+          </div>
+
+          {/* CRITICAL: Shop Code / Quick Unlock PIN */}
+          <div style={styles.inputGroup}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ ...styles.label, color: '#1e40af', fontWeight: '700' }}>
+                Shop Code (శీఘ్ర అన్‌లాక్ కోడ్ / Quick PIN)
+              </label>
+              <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🔒 Phone Security</span>
+            </div>
+            <div style={styles.inputWrapper}>
+              <KeyRound size={18} color="#2563eb" style={styles.inputIcon} />
+              <input
+                type={showShopCode ? 'text' : 'password'}
+                value={shopCode}
+                onChange={(e) => setShopCode(e.target.value)}
+                placeholder="Set 4-digit code (e.g. 1234 or SRI01)"
+                style={{ ...styles.input, borderColor: '#93c5fd', backgroundColor: '#eff6ff', paddingRight: '42px', fontWeight: '600' }}
+                disabled={loading}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowShopCode(!showShopCode)}
+                style={styles.eyeBtn}
+                title={showShopCode ? 'Hide code' : 'Show code'}
+                tabIndex={-1}
+              >
+                {showShopCode ? <EyeOff size={18} color="#64748b" /> : <Eye size={18} color="#64748b" />}
+              </button>
+            </div>
+            <span style={{ ...styles.helpText, color: '#1e40af', lineHeight: '1.4' }}>
+              💡 <strong>ఎందుకు?</strong> మీరు యాప్ మళ్ళీ ఓపెన్ చేసినప్పుడు డాష్‌బోర్డ్ లెక్కలు ఇతరులు చూడకుండా ఈ కోడ్ అడుగుతుంది. మీ ఫోన్ వేరే వాళ్ల చేతికి వెళ్లినా వ్యాపార లెక్కలు 100% సేఫ్!
+            </span>
           </div>
 
           <Button
@@ -138,7 +189,7 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
             icon={!loading ? ArrowRight : undefined}
             style={{ width: '100%', marginTop: '10px' }}
           >
-            CONTINUE TO DASHBOARD
+            SAVE DETAILS &amp; ENTER DASHBOARD
           </Button>
         </form>
 
@@ -233,6 +284,17 @@ const styles = {
     top: '12px',
     pointerEvents: 'none',
   },
+  eyeBtn: {
+    position: 'absolute',
+    right: '12px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px',
+  },
   input: {
     width: '100%',
     padding: '11px 12px 11px 38px',
@@ -250,22 +312,6 @@ const styles = {
     fontSize: '11px',
     color: '#94a3b8',
     marginLeft: '2px',
-  },
-  submitBtn: {
-    marginTop: '10px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '13px',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    letterSpacing: '0.025em',
-    transition: 'background-color 0.2s',
   },
   securityNotice: {
     marginTop: '22px',

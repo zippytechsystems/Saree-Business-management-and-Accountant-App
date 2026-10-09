@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Store,
   Lock,
@@ -13,6 +13,7 @@ import {
   EyeOff,
   Building2,
   KeyRound,
+  Mail,
   CheckCircle2,
 } from 'lucide-react';
 import Button from '../components/common/Button';
@@ -20,16 +21,19 @@ import { apiPost, setAuthToken } from '../utils/api';
 
 export default function AuthScreen({ onAuthSuccess }) {
   // Stage 1: Company Master Gateway (ZippyTech Systems)
-  // Stage 2: Business Client Portal (Login or Sign Up)
+  // Stage 2: Store Business Login / Register
   const [companyVerified, setCompanyVerified] = useState(() => {
     return localStorage.getItem('zippy_company_authorized') === 'true';
   });
-  const [companyCode, setCompanyCode] = useState('');
-  const [showCompanyCode, setShowCompanyCode] = useState(false);
+
+  // Company Master Gate State
+  const [companyEmail, setCompanyEmail] = useState('zippytechsystems@gmail.com');
+  const [companyPassword, setCompanyPassword] = useState('');
+  const [showCompanyPassword, setShowCompanyPassword] = useState(false);
   const [companyLoading, setCompanyLoading] = useState(false);
   const [companyError, setCompanyError] = useState(null);
 
-  // Client Portal State (Login vs Sign Up)
+  // Store Portal State (Login vs Register)
   const [isSignUp, setIsSignUp] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -38,14 +42,21 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 1. Verify Company Master Access Code (Page 1)
+  // 1. Verify Company Master Access Credentials (Page 1)
   const handleCompanyVerify = async (e) => {
     e.preventDefault();
     setCompanyError(null);
 
-    const cleanCode = (companyCode || '').trim();
-    if (!cleanCode) {
-      setCompanyError('Please enter the Company Master Access Code.');
+    const cleanEmail = (companyEmail || '').trim().toLowerCase();
+    const cleanPass = (companyPassword || '').trim();
+
+    if (!cleanEmail) {
+      setCompanyError('Please enter company administrator email.');
+      return;
+    }
+
+    if (!cleanPass) {
+      setCompanyError('Please enter company master password or terminal code.');
       return;
     }
 
@@ -53,19 +64,26 @@ export default function AuthScreen({ onAuthSuccess }) {
 
     try {
       // Call backend company verification
-      const res = await apiPost('/api/auth/company-verify', { accessCode: cleanCode }).catch(() => null);
+      const res = await apiPost('/api/auth/company-verify', {
+        email: cleanEmail,
+        password: cleanPass,
+        accessCode: cleanPass,
+      }).catch(() => null);
 
-      const normalized = cleanCode.toUpperCase();
-      const isValid = (res && res.success) || ['ZIPPY2026', 'ZIPPYTECH', 'ZIPPY'].includes(normalized);
+      const isValid =
+        (res && res.success) ||
+        (cleanEmail === 'zippytechsystems@gmail.com' && cleanPass === 'swamysofwares') ||
+        cleanPass.toLowerCase() === 'zippytechsystems@gmail.comswamysofwares' ||
+        ['ZIPPY2026', 'ZIPPYTECH', 'SWAMYSOFWARES'].includes(cleanPass.toUpperCase());
 
       if (isValid) {
         localStorage.setItem('zippy_company_authorized', 'true');
         setCompanyVerified(true);
       } else {
-        throw new Error('Invalid Company Access Code. Access is restricted to authorized ZippyTech Systems personnel.');
+        throw new Error('Invalid Company Master credentials. Access restricted to authorized personnel.');
       }
     } catch (err) {
-      setCompanyError(err.message || 'Invalid Company Access Code.');
+      setCompanyError(err.message || 'Invalid Company Master credentials.');
     } finally {
       setCompanyLoading(false);
     }
@@ -75,12 +93,12 @@ export default function AuthScreen({ onAuthSuccess }) {
   const handleLockCompany = () => {
     localStorage.removeItem('zippy_company_authorized');
     setCompanyVerified(false);
-    setCompanyCode('');
+    setCompanyPassword('');
     setError(null);
   };
 
-  // 2. Client Portal Submit (Login or Sign Up)
-  const handleClientAuthSubmit = async (e) => {
+  // 2. Store Portal Submit (Login or Sign Up)
+  const handleStoreAuthSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
@@ -123,14 +141,13 @@ export default function AuthScreen({ onAuthSuccess }) {
         onAuthSuccess({
           ...data,
           is_signup: isSignUp,
-          // Signups must complete Business Profile Setup; Logins go straight to dashboard
           needs_profile: isSignUp ? true : Boolean(data.needs_profile),
         });
       }
     } catch (err) {
       let displayMsg = err.message || 'An unexpected error occurred.';
       if (err.isHtml) {
-        displayMsg = `Hostinger server returned an HTML error page (${err.status || 500}). Please ensure the Node.js application is active on Hostinger.`;
+        displayMsg = `Hostinger server returned an HTML error page (${err.status || 500}). Please ensure the application is active.`;
       }
       setError(displayMsg);
     } finally {
@@ -148,7 +165,7 @@ export default function AuthScreen({ onAuthSuccess }) {
         <div className="auth-header-banner">
           <div className="auth-header-pill">
             <Sparkles size={14} />
-            <span>ZIPPYTECH SYSTEMS • ENTERPRISE GATEWAY</span>
+            <span>ZIPPYTECH SYSTEMS • MASTER TERMINAL ACCESS</span>
           </div>
 
           <h1 className="auth-header-title">
@@ -156,17 +173,17 @@ export default function AuthScreen({ onAuthSuccess }) {
           </h1>
 
           <p className="auth-header-subtitle">
-            Secure multi-tenant software protection for clothes &amp; saree business merchant clients
+            Dedicated secure management system for Saree &amp; Textiles business
           </p>
 
           <div className="auth-highlights-row">
             <span className="auth-highlight-pill">
               <ShieldCheck size={14} color="#2563eb" />
-              <span>Play Store Protected</span>
+              <span>Enterprise Encrypted</span>
             </span>
             <span className="auth-highlight-pill">
               <CheckCircle2 size={14} color="#10b981" />
-              <span>Multi-Client Isolation</span>
+              <span>Cloud Synchronized</span>
             </span>
             <span className="auth-highlight-pill">
               <KeyRound size={14} color="#f59e0b" />
@@ -181,9 +198,9 @@ export default function AuthScreen({ onAuthSuccess }) {
             <div style={styles.logoBadgeCompany}>
               <ShieldCheck size={32} color="#ffffff" />
             </div>
-            <h2 style={styles.appTitle}>Company Login</h2>
+            <h2 style={styles.appTitle}>Company Master Login</h2>
             <p style={styles.subtitle}>
-              Enter ZippyTech Systems master passcode to unlock client business portal
+              Enter ZippyTech Systems master credentials to initialize and access software
             </p>
           </div>
 
@@ -197,35 +214,51 @@ export default function AuthScreen({ onAuthSuccess }) {
           <div style={styles.infoBox}>
             <Building2 size={18} color="#2563eb" style={{ minWidth: 18, marginTop: 2 }} />
             <div>
-              <strong>Software Access Protection:</strong> Unauthorized public registration is disabled. Enter your company master code to manage or onboard business clients.
+              <strong>Terminal Security:</strong> Direct software setup is locked to authorized ZippyTech Systems management.
             </div>
           </div>
 
           <form onSubmit={handleCompanyVerify} style={styles.form}>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Company Master Access Code</label>
+              <label style={styles.label}>Company Email</label>
               <div style={styles.inputWrapper}>
-                <KeyRound size={18} color="#64748b" style={styles.inputIcon} />
+                <Mail size={18} color="#64748b" style={styles.inputIcon} />
                 <input
-                  type={showCompanyCode ? 'text' : 'password'}
-                  value={companyCode}
-                  onChange={(e) => setCompanyCode(e.target.value)}
-                  placeholder="Enter Master Code (e.g. ZIPPY2026)"
-                  style={{ ...styles.input, paddingRight: '42px' }}
+                  type="email"
+                  value={companyEmail}
+                  onChange={(e) => setCompanyEmail(e.target.value)}
+                  placeholder="zippytechsystems@gmail.com"
+                  style={styles.input}
                   disabled={companyLoading}
                   required
                 />
+              </div>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Master Password / Terminal Code</label>
+              <div style={styles.inputWrapper}>
+                <KeyRound size={18} color="#64748b" style={styles.inputIcon} />
+                <input
+                  type={showCompanyPassword ? 'text' : 'password'}
+                  value={companyPassword}
+                  onChange={(e) => setCompanyPassword(e.target.value)}
+                  placeholder="Enter Master Password"
+                  style={{ ...styles.input, paddingRight: '42px' }}
+                  disabled={companyLoading}
+                  required
+                  autoFocus
+                />
                 <button
                   type="button"
-                  onClick={() => setShowCompanyCode(!showCompanyCode)}
+                  onClick={() => setShowCompanyPassword(!showCompanyPassword)}
                   style={styles.eyeBtn}
-                  title={showCompanyCode ? 'Hide code' : 'Show code'}
+                  title={showCompanyPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
-                  {showCompanyCode ? <EyeOff size={18} color="#64748b" /> : <Eye size={18} color="#64748b" />}
+                  {showCompanyPassword ? <EyeOff size={18} color="#64748b" /> : <Eye size={18} color="#64748b" />}
                 </button>
               </div>
-              <span style={styles.helpText}>Default Master Code: <strong>ZIPPY2026</strong></span>
             </div>
 
             <button
@@ -237,10 +270,10 @@ export default function AuthScreen({ onAuthSuccess }) {
               }}
             >
               {companyLoading ? (
-                <span>Verifying Company Gate...</span>
+                <span>Verifying Credentials...</span>
               ) : (
                 <>
-                  <span>Verify &amp; Enter Client Portal</span>
+                  <span>Verify &amp; Enter Store Portal</span>
                   <ArrowRight size={18} />
                 </>
               )}
@@ -257,7 +290,7 @@ export default function AuthScreen({ onAuthSuccess }) {
   }
 
   // =========================================================================
-  // VIEW 2: CLIENT BUSINESS PORTAL (LOGIN & SIGN UP TABS)
+  // VIEW 2: STORE BUSINESS ACCESS (LOGIN & REGISTER TABS - NO "CLIENTS" MENTION)
   // =========================================================================
   return (
     <div className="auth-page-container">
@@ -265,7 +298,7 @@ export default function AuthScreen({ onAuthSuccess }) {
       <div className="auth-header-banner">
         <div className="auth-header-pill">
           <Sparkles size={14} />
-          <span>SAREE BUSINESS ERP • CLIENT PORTAL</span>
+          <span>SAREE BUSINESS MANAGEMENT • SECURE STORE ACCESS</span>
         </div>
 
         <h1 className="auth-header-title">
@@ -292,9 +325,9 @@ export default function AuthScreen({ onAuthSuccess }) {
         </div>
       </div>
 
-      {/* Centered Client Card */}
+      {/* Centered Store Card */}
       <div className="auth-form-card">
-        {/* Portal Header with Company Badge */}
+        {/* Header */}
         <div style={styles.header}>
           <div style={styles.logoBadge}>
             <Store size={28} color="#2563eb" />
@@ -304,12 +337,12 @@ export default function AuthScreen({ onAuthSuccess }) {
           </h2>
           <p style={styles.subtitle}>
             {isSignUp
-              ? 'Onboard a new saree merchant. Setup business name & store on next step.'
+              ? 'Register your store and setup business details & shop code on next step.'
               : 'Enter your business credentials to load 100% of your historical data.'}
           </p>
         </div>
 
-        {/* Tab Switcher: Login vs Sign Up */}
+        {/* Tab Switcher: Login vs Register */}
         <div style={styles.tabContainer}>
           <button
             type="button"
@@ -322,7 +355,7 @@ export default function AuthScreen({ onAuthSuccess }) {
               ...(isSignUp ? {} : styles.tabBtnActive),
             }}
           >
-            Business Login
+            Store Login
           </button>
           <button
             type="button"
@@ -335,7 +368,7 @@ export default function AuthScreen({ onAuthSuccess }) {
               ...(isSignUp ? styles.tabBtnActive : {}),
             }}
           >
-            + Create New Client
+            + Register Store
           </button>
         </div>
 
@@ -350,7 +383,7 @@ export default function AuthScreen({ onAuthSuccess }) {
         <div style={isSignUp ? styles.signupInfoBox : styles.loginInfoBox}>
           {isSignUp ? (
             <div>
-              <strong>Step 1 of 2:</strong> Create master username &amp; password for the new client. In <strong>Step 2</strong>, you will enter their Business Name and Store Address!
+              <strong>Step 1 of 2:</strong> Create master username &amp; password for your business. In <strong>Step 2</strong>, you will setup your Business Name, Store Address, and Shop Quick Access Code!
             </div>
           ) : (
             <div>
@@ -359,10 +392,10 @@ export default function AuthScreen({ onAuthSuccess }) {
           )}
         </div>
 
-        <form onSubmit={handleClientAuthSubmit} style={styles.form}>
+        <form onSubmit={handleStoreAuthSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>
-              {isSignUp ? 'New Client / Owner Username' : 'Business Username'}
+              {isSignUp ? 'New Owner Username' : 'Business / Owner Username'}
             </label>
             <div style={styles.inputWrapper}>
               <User size={18} color="#64748b" style={styles.inputIcon} />
@@ -453,7 +486,7 @@ export default function AuthScreen({ onAuthSuccess }) {
             style={styles.lockBtn}
           >
             <KeyRound size={13} />
-            <span>🔒 Lock to Company Gateway</span>
+            <span>🔒 Master Terminal Gate</span>
           </button>
         </div>
 

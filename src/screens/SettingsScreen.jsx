@@ -17,6 +17,8 @@ import {
   User,
   Building2,
   Edit2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
@@ -28,6 +30,9 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
   const [editName, setEditName] = useState(initialProfile?.business_name || '');
   const [editAddress, setEditAddress] = useState(initialProfile?.business_address || '');
   const [editNickname, setEditNickname] = useState(initialProfile?.business_nickname || '');
+  const [editShopCode, setEditShopCode] = useState(initialProfile?.shop_code || '');
+  const [showShopCode, setShowShopCode] = useState(false);
+  const [showEditShopCode, setShowEditShopCode] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState(null);
   const [profileSuccess, setProfileSuccess] = useState(null);
@@ -71,6 +76,7 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
           setEditName(json.data.business_name || '');
           setEditAddress(json.data.business_address || '');
           setEditNickname(json.data.business_nickname || '');
+          setEditShopCode(json.data.shop_code || '');
         }
       })
       .catch((err) => console.error('Failed to load profile:', err));
@@ -89,6 +95,7 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
           business_name: editName.trim(),
           business_address: editAddress.trim(),
           business_nickname: editNickname.trim(),
+          shop_code: editShopCode.trim(),
         }),
       });
       const data = await res.json();
@@ -97,7 +104,7 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
       }
       setProfile(data.data);
       setEditingProfile(false);
-      setProfileSuccess('Business profile updated successfully!');
+      setProfileSuccess('Business profile & Shop Code updated successfully!');
       if (onProfileUpdate) onProfileUpdate(data.data);
     } catch (err) {
       setProfileError(err.message || 'Error updating profile.');
@@ -290,6 +297,22 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '90px' }}>Address:</span>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 {profile?.business_address || '—'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '90px' }}>Shop Code:</span>
+              <span style={{ padding: '2px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontWeight: 600, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <KeyRound size={12} />
+                {showShopCode ? (profile?.shop_code || 'Not set (Default: 1234)') : '••••'}
+                <button
+                  type="button"
+                  onClick={() => setShowShopCode(!showShopCode)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', display: 'inline-flex' }}
+                  title={showShopCode ? 'Hide Code' : 'Reveal Code'}
+                >
+                  {showShopCode ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
               </span>
             </div>
 
@@ -573,6 +596,55 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
                 color: 'var(--text-primary)',
               }}
             />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-blue)' }}>
+                Shop Code (Quick Device Unlock PIN)
+              </label>
+              <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>🔒 Phone Lock</span>
+            </div>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showEditShopCode ? 'text' : 'password'}
+                value={editShopCode}
+                onChange={(e) => setEditShopCode(e.target.value)}
+                placeholder="4-digit PIN (e.g. 1234 or SRI01)"
+                required
+                disabled={profileSaving}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem 2.4rem 0.6rem 0.8rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  fontWeight: 600,
+                  boxSizing: 'border-box',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowEditShopCode(!showEditShopCode)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title={showEditShopCode ? 'Hide PIN' : 'Show PIN'}
+              >
+                {showEditShopCode ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              Used to instantly unlock dashboard when reopening the app on this phone.
+            </span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>

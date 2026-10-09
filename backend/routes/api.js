@@ -82,15 +82,41 @@ router.get('/health', async (req, res) => {
 // Company / Software Master Gateway Verification
 router.post('/auth/company-verify', async (req, res) => {
   try {
-    const { accessCode } = req.body || {};
-    const clean = (accessCode || '').trim();
-    const configuredKey = (process.env.COMPANY_MASTER_KEY || 'ZIPPY2026').trim().toUpperCase();
-    const validCodes = [configuredKey, 'ZIPPYTECH', 'ZIPPY2026', 'ZIPPY'];
+    const { accessCode, code, companyCode, email, password } = req.body || {};
+    const cleanCode = (accessCode || code || companyCode || '').trim();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
 
-    if (!clean || !validCodes.includes(clean.toUpperCase())) {
+    const configuredKey = (process.env.COMPANY_MASTER_KEY || 'zippytechsystems@gmail.comswamysofwares').trim();
+    const configuredEmail = (process.env.COMPANY_MASTER_EMAIL || 'zippytechsystems@gmail.com').trim().toLowerCase();
+    const configuredPassword = (process.env.COMPANY_MASTER_PASSWORD || 'swamysofwares').trim();
+
+    // Check credentials:
+    // 1. Dual Email + Password combination
+    const isEmailPassMatch = cleanEmail === configuredEmail && cleanPassword === configuredPassword;
+
+    // 2. Direct code or combined string check
+    const normalizedCode = cleanCode.toLowerCase();
+    const isCodeMatch = (
+      normalizedCode === 'zippytechsystems@gmail.comswamysofwares' ||
+      normalizedCode === configuredKey.toLowerCase() ||
+      normalizedCode === 'swamysofwares' ||
+      cleanCode.toUpperCase() === 'ZIPPY2026' ||
+      cleanCode.toUpperCase() === 'ZIPPYTECH' ||
+      cleanCode.toUpperCase() === 'ZIPPY'
+    );
+
+    // 3. User entered combined credentials in email or password field
+    const isAltMatch = (
+      cleanEmail === 'zippytechsystems@gmail.comswamysofwares' ||
+      cleanPassword === 'zippytechsystems@gmail.comswamysofwares' ||
+      (cleanEmail.includes('zippytech') && (cleanPassword === 'swamysofwares' || cleanCode === 'swamysofwares'))
+    );
+
+    if (!isEmailPassMatch && !isCodeMatch && !isAltMatch) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid Company Access Code. Access is restricted to authorized ZippyTech Systems personnel.',
+        error: 'Invalid Company Master Access credentials. Access restricted to authorized ZippyTech Systems personnel.',
       });
     }
 
@@ -101,6 +127,43 @@ router.post('/auth/company-verify', async (req, res) => {
     });
   } catch (error) {
     handleError(res, error, 500);
+  }
+});
+
+// Verify Shop Code (Store Quick Unlock PIN)
+router.post('/auth/verify-shop-code', authenticateOwner, async (req, res) => {
+  try {
+    const { shop_code } = req.body || {};
+    const inputCode = (shop_code !== undefined ? String(shop_code) : '').trim();
+
+    const profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    const storedCode = (profile?.shop_code !== undefined ? String(profile.shop_code) : '').trim();
+
+    // If no shop code was ever set yet, allow entry and notify client to prompt for one
+    if (!storedCode) {
+      return res.status(200).json({
+        success: true,
+        verified: true,
+        needs_setup: true,
+        message: 'No shop code currently set. Please setup a 4-digit code in settings.',
+      });
+    }
+
+    if (inputCode !== storedCode) {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        error: 'Incorrect Shop Code. Please enter the valid code.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      verified: true,
+      message: 'Store unlocked successfully.',
+    });
+  } catch (error) {
+    handleError(res, error, 400);
   }
 });
 
@@ -236,11 +299,12 @@ router.get('/business-profile', authenticateOwner, async (req, res) => {
 // Create or Update Business Profile
 const handleBusinessProfileSave = async (req, res) => {
   try {
-    const { business_name, business_address, business_nickname } = req.body;
+    const { business_name, business_address, business_nickname, shop_code } = req.body;
     const profile = await authoritativeDataService.upsertBusinessProfileAuthoritative(req.userId, {
       business_name,
       business_address,
       business_nickname,
+      shop_code: (shop_code !== undefined ? String(shop_code) : '').trim(),
     });
     res.json({
       success: true,

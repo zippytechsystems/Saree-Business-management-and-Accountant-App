@@ -851,6 +851,7 @@ export async function getBusinessProfileAuthoritative(userId = 1) {
           business_name: profile.business_name,
           business_address: profile.business_address,
           business_nickname: profile.business_nickname,
+          shop_code: profile.shop_code || '',
           created_at: profile.created_at,
           updated_at: profile.updated_at,
         };

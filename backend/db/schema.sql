@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS business_profiles (
     business_name TEXT NOT NULL,
     business_address TEXT NOT NULL,
     business_nickname TEXT NOT NULL,
+    shop_code TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

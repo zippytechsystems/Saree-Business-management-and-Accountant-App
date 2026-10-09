@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `business_profiles` (
     `business_name` VARCHAR(255) NOT NULL,
     `business_address` TEXT NOT NULL,
     `business_nickname` VARCHAR(100) NOT NULL,
+    `shop_code` VARCHAR(50) DEFAULT '',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT `fk_business_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
