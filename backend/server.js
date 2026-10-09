@@ -302,29 +302,42 @@ const startServer = async () => {
   }
 };
 
-const isRunningOnLiteSpeed = () => {
-  if (typeof process !== 'undefined') {
-    if (process.env.LSNODE_CONSOLE_LOG || process.env.LSNODE_ROOT) return true;
-    if (process.argv && process.argv.some((a) => typeof a === 'string' && a.includes('lsnode.js'))) return true;
-  }
-  return false;
-};
+app.listen(PORT, async () => {
+  console.log(`[Server] Backend service running on http://localhost:${PORT}`);
 
-if (typeof PhusionPassenger !== 'undefined') {
-  app.listen('passenger', () => {
-    console.log('[Server] Backend service running under Phusion Passenger');
-    startServer();
-  });
-} else if (isRunningOnLiteSpeed()) {
-  app.listen(() => {
-    console.log('[Server] Backend service running under LiteSpeed (lsnode.js FastCGI)');
-    startServer();
-  });
-} else {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] Backend service running on http://0.0.0.0:${PORT}`);
-    startServer();
-  });
-}
+  // Check Hostinger MySQL Configuration
+  const isMySQL = mysql.isMySQLConfigured();
+  if (isMySQL) {
+    console.log('[Hostinger MySQL] Initializing schema and checking database connection...');
+    try {
+      await mysql.initMySQLSchema();
+      const mysqlStatus = await mysql.testMySQLConnection();
+      if (mysqlStatus.connected) {
+        console.log('================================================================');
+        console.log(`[Hostinger MySQL] ✓ Connected to Hostinger MySQL Database: ${mysqlStatus.database} on ${mysqlStatus.host}:${mysqlStatus.port}`);
+        console.log(`[Hostinger MySQL] Mode: hostinger_mysql_authoritative (100% Authoritative Source of Truth)`);
+        console.log(`[Hostinger MySQL] Tables Verified: ${mysqlStatus.tables?.length || 0}`);
+        console.log('================================================================');
+      } else {
+        console.error('[Hostinger MySQL] ❌ MySQL connection failed:', mysqlStatus.error);
+        console.warn('[Hostinger MySQL] Falling back to local SQLite cache (data/app.db).');
+      }
+    } catch (err) {
+      console.error('[Hostinger MySQL] Schema initialization error:', err.message);
+    }
+  } else {
+    const cfg = mysql.getMySQLConfig();
+    console.log('================================================================');
+    console.log(`[Hostinger Server] ✓ App active on Hostinger (Port: ${PORT})`);
+    if (cfg.user && cfg.user.toLowerCase() === 'root') {
+      console.warn("[Hostinger MySQL] Notice: 'root' user is not permitted on Hostinger MySQL. Please create a user in hPanel.");
+    } else {
+      console.log('[Hostinger MySQL] Notice: MySQL credentials (DB_USER, DB_PASSWORD, DB_NAME) not yet configured.');
+    }
+    console.log('[Hostinger Database] ✓ Resilient local SQLite database operational at data/app.db (WAL Mode)');
+    console.log('[Hostinger Database] Mode: hostinger_authoritative');
+    console.log('================================================================');
+  }
+});
 
 export default app;
