@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+
 // Ensure data directory exists
 const dataDir = path.resolve(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) {
@@ -14,11 +18,11 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'app.db');
 let db = null;
 
-// Dynamically check and load node:sqlite (available in Node.js >= 22.5.0)
+// Dynamically check and synchronously load node:sqlite (available in Node.js >= 22.5.0)
 try {
-  const sqliteModule = await import('node:sqlite');
-  if (sqliteModule && sqliteModule.DatabaseSync) {
-    db = new sqliteModule.DatabaseSync(dbPath);
+  const { DatabaseSync } = require('node:sqlite');
+  if (DatabaseSync) {
+    db = new DatabaseSync(dbPath);
     try {
       db.exec('PRAGMA journal_mode = WAL;');
       db.exec('PRAGMA foreign_keys = ON;');
@@ -30,7 +34,7 @@ try {
     }
   }
 } catch (err) {
-  // Graceful fallback for Node.js 18 / 20 environments
+  // Graceful fallback for Node.js environments where node:sqlite is not available
   console.log('[Database] Built-in node:sqlite not supported on this Node version. Hostinger MySQL is authoritative.');
 }
 
