@@ -23,6 +23,7 @@ import {
 import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
+import { apiGet, apiPost } from '../utils/api';
 
 export default function SettingsScreen({ businessProfile: initialProfile, user, onLogout, onProfileUpdate }) {
   const [profile, setProfile] = useState(initialProfile || null);
@@ -36,6 +37,17 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState(null);
   const [profileSuccess, setProfileSuccess] = useState(null);
+
+  // Sync internal state when parent initialProfile changes
+  useEffect(() => {
+    if (initialProfile) {
+      setProfile(initialProfile);
+      setEditName(initialProfile.business_name || '');
+      setEditAddress(initialProfile.business_address || '');
+      setEditNickname(initialProfile.business_nickname || '');
+      setEditShopCode(initialProfile.shop_code || '');
+    }
+  }, [initialProfile]);
 
   const [dbInfo, setDbInfo] = useState({ loading: true, data: null, error: null });
   const [cloudStatus, setCloudStatus] = useState(null);
@@ -68,15 +80,15 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
 
   useEffect(() => {
     fetchStatus();
-    fetch('/api/business-profile')
-      .then((res) => res.json())
+    apiGet('/api/business-profile')
       .then((json) => {
-        if (json.success && json.data) {
+        if (json && json.success && json.data) {
           setProfile(json.data);
           setEditName(json.data.business_name || '');
           setEditAddress(json.data.business_address || '');
           setEditNickname(json.data.business_nickname || '');
           setEditShopCode(json.data.shop_code || '');
+          if (onProfileUpdate) onProfileUpdate(json.data);
         }
       })
       .catch((err) => console.error('Failed to load profile:', err));
@@ -88,24 +100,45 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
     setProfileError(null);
     setProfileSuccess(null);
     try {
-      const res = await fetch('/api/business-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          business_name: editName.trim(),
-          business_address: editAddress.trim(),
-          business_nickname: editNickname.trim(),
-          shop_code: editShopCode.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to save business profile.');
+      const cleanName = editName.trim();
+      const cleanAddress = editAddress.trim();
+      const cleanNickname = editNickname.trim();
+      const cleanShopCode = editShopCode.trim();
+
+      if (!cleanName) {
+        throw new Error('Business Name is required.');
       }
-      setProfile(data.data);
+      if (!cleanAddress) {
+        throw new Error('Business Address is required.');
+      }
+      if (!cleanNickname) {
+        throw new Error('Shop / Business Nickname is required.');
+      }
+
+      const res = await apiPost('/api/business-profile', {
+        business_name: cleanName,
+        business_address: cleanAddress,
+        business_nickname: cleanNickname,
+        shop_code: cleanShopCode,
+      });
+
+      if (!res || !res.success || !res.data) {
+        throw new Error(res?.error || 'Failed to save business profile.');
+      }
+
+      const updatedData = res.data;
+      setProfile(updatedData);
+      setEditName(updatedData.business_name || '');
+      setEditAddress(updatedData.business_address || '');
+      setEditNickname(updatedData.business_nickname || '');
+      setEditShopCode(updatedData.shop_code || '');
       setEditingProfile(false);
       setProfileSuccess('Business profile & Shop Code updated successfully!');
-      if (onProfileUpdate) onProfileUpdate(data.data);
+
+      // Instantly update parent App state (Header, Layout, LockScreen all refresh immediately)
+      if (onProfileUpdate) {
+        onProfileUpdate(updatedData);
+      }
     } catch (err) {
       setProfileError(err.message || 'Error updating profile.');
     } finally {
@@ -300,20 +333,39 @@ export default function SettingsScreen({ businessProfile: initialProfile, user, 
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '90px' }}>Shop Code:</span>
-              <span style={{ padding: '2px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontWeight: 600, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <KeyRound size={12} />
-                {showShopCode ? (profile?.shop_code || 'Not set (Default: 1234)') : '••••'}
+              <span style={{ padding: '3px 10px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <KeyRound size={13} />
+                {showShopCode ? (profile?.shop_code ? profile.shop_code : '1234 (Default)') : '••••'}
                 <button
                   type="button"
                   onClick={() => setShowShopCode(!showShopCode)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', display: 'inline-flex' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', display: 'inline-flex', marginLeft: '4px' }}
                   title={showShopCode ? 'Hide Code' : 'Reveal Code'}
                 >
                   {showShopCode ? <EyeOff size={13} /> : <Eye size={13} />}
                 </button>
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditShopCode(profile?.shop_code || '');
+                  setEditingProfile(true);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3b82f6',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: '2px 4px',
+                }}
+              >
+                Change Code
+              </button>
             </div>
 
             {profileSuccess && (

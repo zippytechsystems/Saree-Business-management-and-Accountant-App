@@ -33,6 +33,12 @@ export async function signupUser({ username, password, confirmPassword, confirm_
     throw err;
   }
 
+  if (password.length < 6) {
+    const err = new Error('Password must be at least 6 characters long.');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const confirm = confirmPassword !== undefined ? confirmPassword : confirm_password;
   if (confirm !== undefined && password !== confirm) {
     const err = new Error('Password and confirmation password do not match.');
@@ -568,11 +574,33 @@ export async function addExpense({ expense_date, expense_type, amount, descripti
   };
 }
 
+export async function getExpenseById(id, userId = 1) {
+  const uid = Number(userId || 1);
+  const [rows] = await mysql.query(
+    'SELECT id, user_id, expense_date, expense_type, amount, description, created_at, updated_at FROM expenses WHERE id = ? AND user_id = ? LIMIT 1',
+    [id, uid]
+  );
+  if (rows.length === 0) return null;
+  const e = rows[0];
+  return {
+    id: Number(e.id),
+    user_id: Number(e.user_id),
+    expense_date: e.expense_date,
+    expense_type: e.expense_type,
+    amount: Number(e.amount),
+    description: e.description || '',
+    created_at: e.created_at,
+    updated_at: e.updated_at,
+  };
+}
+
 export async function updateExpense(id, { expense_date, expense_type, amount, description = '', userId = 1 }) {
   const uid = Number(userId || 1);
   const [existing] = await mysql.query('SELECT id FROM expenses WHERE id = ? AND user_id = ? LIMIT 1', [id, uid]);
   if (existing.length === 0) {
-    throw new Error(`Expense with ID ${id} not found.`);
+    const err = new Error(`Expense with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   if (!expense_date || !isValidDateString(expense_date)) {
@@ -623,7 +651,9 @@ export async function deleteExpense(id, userId = 1) {
   const uid = Number(userId || 1);
   const [result] = await mysql.query('DELETE FROM expenses WHERE id = ? AND user_id = ?', [id, uid]);
   if (result.affectedRows === 0) {
-    throw new Error(`Expense with ID ${id} not found.`);
+    const err = new Error(`Expense with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   // Mirror to SQLite
@@ -1116,7 +1146,9 @@ export async function updateLender(id, { name, mobile, place, amount_given, amou
   const uid = Number(userId || 1);
   const existing = await getLenderById(id, uid);
   if (!existing) {
-    throw new Error(`Lender with ID ${id} not found.`);
+    const err = new Error(`Lender with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   const updatedName = name !== undefined ? name.trim() : existing.name;
@@ -1166,7 +1198,9 @@ export async function recordLenderPayment(id, paymentAmount, notes = '', userId 
   const uid = Number(userId || 1);
   const existing = await getLenderById(id, uid);
   if (!existing) {
-    throw new Error(`Lender with ID ${id} not found.`);
+    const err = new Error(`Lender with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   const numPayment = Number(paymentAmount);
@@ -1229,7 +1263,9 @@ export async function deleteLender(id, userId = 1) {
   const uid = Number(userId || 1);
   const [result] = await mysql.query('DELETE FROM lenders WHERE id = ? AND user_id = ?', [id, uid]);
   if (result.affectedRows === 0) {
-    throw new Error(`Lender with ID ${id} not found.`);
+    const err = new Error(`Lender with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   // Mirror to SQLite

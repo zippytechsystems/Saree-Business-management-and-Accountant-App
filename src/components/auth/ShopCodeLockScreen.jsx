@@ -13,8 +13,11 @@ import {
   Sparkles,
   Delete,
   RotateCcw,
+  User,
+  CheckCircle2,
 } from 'lucide-react';
 import Button from '../common/Button';
+import { setAuthToken } from '../../utils/api';
 
 export default function ShopCodeLockScreen({
   businessProfile,
@@ -23,29 +26,49 @@ export default function ShopCodeLockScreen({
   onLogout,
   onProfileUpdate,
 }) {
+  // Modes: 'pin' (default PIN unlock) | 'forgot_step1' (ask username & password) | 'forgot_step2' (set new shop code)
+  const [mode, setMode] = useState('pin');
+
+  // PIN Unlock State
   const [shopCodeInput, setShopCodeInput] = useState('');
   const [showCode, setShowCode] = useState(false);
   const [error, setError] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [showPasswordFallback, setShowPasswordFallback] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [newShopCodeInput, setNewShopCodeInput] = useState('');
-  const [isResettingCode, setIsResettingCode] = useState(false);
+
+  // Forgot Shop Code Flow - Step 1: Verify Username & Password
+  const [forgotUsername, setForgotUsername] = useState(user?.username || businessProfile?.business_nickname || '');
+  const [forgotPassword, setForgotPassword] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
+  // Forgot Shop Code Flow - Step 2: Set New Shop Code
+  const [newShopCode, setNewShopCode] = useState('');
+  const [confirmNewShopCode, setConfirmNewShopCode] = useState('');
+  const [showNewCode, setShowNewCode] = useState(false);
+  const [verifiedToken, setVerifiedToken] = useState(null);
 
   const inputRef = useRef(null);
 
   const businessName = businessProfile?.business_name || 'Saree Business ERP';
   const shopNickname = businessProfile?.business_nickname || user?.username || 'Saree Store';
-  const expectedShopCode = (businessProfile?.shop_code || '').trim();
+  const expectedShopCode = (businessProfile?.shop_code || '').trim() || '1234';
 
   useEffect(() => {
-    // Auto-focus input for immediate entry
-    if (inputRef.current) {
+    // Auto-focus input when in PIN mode
+    if (mode === 'pin' && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [showPasswordFallback]);
+  }, [mode]);
 
-  // Handle Shop Code Unlock Verification
+  // Keep forgotUsername in sync if user prop updates
+  useEffect(() => {
+    if (user?.username && !forgotUsername) {
+      setForgotUsername(user.username);
+    }
+  }, [user]);
+
+  // =========================================================================
+  // 1. PIN Unlock Verification (STRICT: Never unlock on wrong code)
+  // =========================================================================
   const handleUnlock = async (codeToTest = null) => {
     setError(null);
     const code = (codeToTest !== null ? codeToTest : shopCodeInput).trim();
@@ -58,21 +81,12 @@ export default function ShopCodeLockScreen({
     setIsVerifying(true);
 
     try {
-      // 1. If profile has shop_code, test locally first for instantaneous zero-latency unlock
-      if (expectedShopCode) {
-        if (code === expectedShopCode) {
-          triggerSuccessUnlock();
-          return;
-        }
-      }
-
-      // 2. Call backend verification endpoint (handles sync and fallback)
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
       const res = await fetch('/api/auth/verify-shop-code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ shop_code: code }),
       });
@@ -82,15 +96,10 @@ export default function ShopCodeLockScreen({
       if (res.ok && data.success) {
         triggerSuccessUnlock();
       } else {
-        // Fallback: If no code was ever set, accept standard default '1234'
-        if (!expectedShopCode && (code === '1234' || code === '0000')) {
-          triggerSuccessUnlock();
-          return;
-        }
-        throw new Error(data.error || 'తప్పు షాప్ కోడ్ (Incorrect Shop Code). Please re-enter.');
+        throw new Error(data.error || 'తప్పు షాప్ కోడ్ (Incorrect Shop Code). దయచేసి సరైన కోడ్ నమోదు చేయండి.');
       }
     } catch (err) {
-      setError(err.message || 'Incorrect Shop Code.');
+      setError(err.message || 'తప్పు షాప్ కోడ్ (Incorrect Shop Code).');
       setShopCodeInput('');
       if (inputRef.current) inputRef.current.focus();
     } finally {
@@ -99,20 +108,17 @@ export default function ShopCodeLockScreen({
   };
 
   const triggerSuccessUnlock = () => {
-    // Record unlock in sessionStorage for active browser window
     sessionStorage.setItem('device_unlocked', 'true');
     if (onUnlock) {
       onUnlock();
     }
   };
 
-  // Form submit on Enter key
   const handleSubmit = (e) => {
     e.preventDefault();
     handleUnlock();
   };
 
-  // Handle on-screen Keypad taps
   const handleKeypadPress = (val) => {
     setError(null);
     if (val === 'CLEAR') {
@@ -122,66 +128,130 @@ export default function ShopCodeLockScreen({
     } else {
       const next = shopCodeInput + val;
       setShopCodeInput(next);
-      // Auto-submit if reaches expected code length (if configured)
+      // Auto-verify if typed length matches expected code length (if code is set)
       if (expectedShopCode && next.length === expectedShopCode.length) {
         handleUnlock(next);
       }
     }
   };
 
-  // Password Verification for Code Reset or Bypass
-  const handlePasswordUnlock = async (e) => {
+  // =========================================================================
+  // 2. Forgot Shop Code: STEP 1 - Verify Username & Password
+  // =========================================================================
+  const handleVerifyCredentials = async (e) => {
     e.preventDefault();
     setError(null);
 
-    if (!passwordInput) {
-      setError('Please enter your account password.');
+    const cleanUsername = forgotUsername.trim();
+    if (!cleanUsername) {
+      setError('దయచేసి యూజర్ నేమ్ నమోదు చేయండి (Please enter your Username).');
+      return;
+    }
+
+    if (!forgotPassword) {
+      setError('దయచేసి పాస్‌వర్డ్ నమోదు చేయండి (Please enter your account password).');
       return;
     }
 
     setIsVerifying(true);
 
     try {
-      // Authenticate with user's password
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: user?.username || businessProfile?.business_nickname || 'owner',
-          password: passwordInput,
+          username: cleanUsername,
+          password: forgotPassword,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Invalid password. Cannot unlock.');
+        throw new Error(data.error || 'తప్పు యూజర్ నేమ్ లేదా పాస్‌వర్డ్ (Invalid Username or Password). Please try again.');
       }
 
-      // If user provided a new shop code to reset:
-      if (newShopCodeInput.trim()) {
-        const updateRes = await fetch('/api/business-profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${data.token || localStorage.getItem('auth_token')}`,
-          },
-          body: JSON.stringify({
-            business_name: businessProfile?.business_name || 'Saree Store',
-            business_address: businessProfile?.business_address || 'Main Store',
-            business_nickname: businessProfile?.business_nickname || 'Saree Shop',
-            shop_code: newShopCodeInput.trim(),
-          }),
-        });
-        const updateData = await updateRes.json();
-        if (updateData.success && onProfileUpdate) {
-          onProfileUpdate(updateData.data);
-        }
+      // Valid credentials! Store session token and move to Step 2
+      if (data.token) {
+        setAuthToken(data.token, true);
+        setVerifiedToken(data.token);
       }
 
+      if (data.business_profile && onProfileUpdate) {
+        onProfileUpdate(data.business_profile);
+      }
+
+      // Clear password from state and transition to Step 2
+      setForgotPassword('');
+      setError(null);
+      setMode('forgot_step2');
+    } catch (err) {
+      setError(err.message || 'ధృవీకరణ విఫలమైంది (Verification failed). Please check your Username & Password.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // =========================================================================
+  // 3. Forgot Shop Code: STEP 2 - Set & Confirm New Shop Code
+  // =========================================================================
+  const handleSaveNewShopCode = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    const cleanNewCode = newShopCode.trim();
+    const cleanConfirmCode = confirmNewShopCode.trim();
+
+    if (!cleanNewCode) {
+      setError('దయచేసి క్రొత్త షాప్ కోడ్ నమోదు చేయండి (Please enter your new Shop Code).');
+      return;
+    }
+
+    if (cleanNewCode.length < 3) {
+      setError('షాప్ కోడ్ కనీసం 3 లేదా 4 అంకెలు ఉండాలి (Shop Code must be at least 3 digits).');
+      return;
+    }
+
+    if (cleanNewCode !== cleanConfirmCode) {
+      setError('షాప్ కోడ్స్ సరిపోలడం లేదు (Shop Codes do not match). దయచేసి నిర్ధారణ కోడ్ మళ్లీ సరిచూడండి.');
+      return;
+    }
+
+    setIsVerifying(true);
+
+    try {
+      const token = verifiedToken || localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      const res = await fetch('/api/auth/reset-shop-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          shop_code: cleanNewCode,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'షాప్ కోడ్ సేవ్ చేయడం విఫలమైంది (Failed to update Shop Code).');
+      }
+
+      // Update parent profile state so settings & dashboard reflect the new code immediately
+      const updatedProfile = data.business_profile || data.data || {
+        ...businessProfile,
+        shop_code: cleanNewCode,
+      };
+
+      if (onProfileUpdate) {
+        onProfileUpdate(updatedProfile);
+      }
+
+      // Unlock and proceed to dashboard
       triggerSuccessUnlock();
     } catch (err) {
-      setError(err.message || 'Verification failed.');
+      setError(err.message || 'షాప్ కోడ్ అప్‌డేట్ విఫలమైంది (Failed to update Shop Code).');
     } finally {
       setIsVerifying(false);
     }
@@ -192,8 +262,14 @@ export default function ShopCodeLockScreen({
       <div style={styles.card}>
         {/* Lock Brand Header */}
         <div style={styles.header}>
-          <div style={styles.shieldBadge}>
-            <ShieldCheck size={34} color="#ffffff" />
+          <div style={mode === 'forgot_step2' ? styles.successBadge : styles.shieldBadge}>
+            {mode === 'forgot_step2' ? (
+              <CheckCircle2 size={34} color="#ffffff" />
+            ) : mode === 'forgot_step1' ? (
+              <KeyRound size={34} color="#ffffff" />
+            ) : (
+              <ShieldCheck size={34} color="#ffffff" />
+            )}
           </div>
 
           <div style={styles.storePill}>
@@ -201,9 +277,19 @@ export default function ShopCodeLockScreen({
             <span>{shopNickname}</span>
           </div>
 
-          <h1 style={styles.title}>Store Protected • Quick Lock</h1>
+          <h1 style={styles.title}>
+            {mode === 'forgot_step1'
+              ? 'Forgot Shop Code • Verify Identity'
+              : mode === 'forgot_step2'
+              ? 'Set New Shop Code'
+              : 'Store Protected • Quick Lock'}
+          </h1>
           <p style={styles.subtitle}>
-            మీ వ్యాపార లెక్కలు &amp; డాష్‌బోర్డ్ తెరవడానికి <strong>షాప్ కోడ్</strong> ఎంటర్ చేయండి
+            {mode === 'forgot_step1'
+              ? 'షాప్ కోడ్ రీసెట్ చేయడానికి మీ యూజర్ నేమ్ & పాస్‌వర్డ్ నమోదు చేయండి'
+              : mode === 'forgot_step2'
+              ? 'మీ స్టోర్ డాష్‌బోర్డ్ తెరవడానికి క్రొత్త 4-అంకెల పిన్ నమోదు చేయండి'
+              : 'మీ వ్యాపార లెక్కలు & డాష్‌బోర్డ్ తెరవడానికి షాప్ కోడ్ ఎంటర్ చేయండి'}
           </p>
           <span style={styles.securityHint}>
             🔒 100% Private: Customer / phone glance protection active
@@ -217,8 +303,10 @@ export default function ShopCodeLockScreen({
           </div>
         )}
 
-        {/* VIEW A: Standard Shop Code PIN Unlock */}
-        {!showPasswordFallback ? (
+        {/* ================================================================= */}
+        {/* VIEW 1: STANDARD SHOP CODE PIN UNLOCK                             */}
+        {/* ================================================================= */}
+        {mode === 'pin' && (
           <div>
             <form onSubmit={handleSubmit} style={styles.form}>
               <div style={styles.inputWrapper}>
@@ -299,11 +387,11 @@ export default function ShopCodeLockScreen({
                 type="button"
                 onClick={() => {
                   setError(null);
-                  setShowPasswordFallback(true);
+                  setMode('forgot_step1');
                 }}
                 style={styles.linkBtn}
               >
-                Forgot Shop Code? Unlock with Account Password
+                Forgot Shop Code? (షాప్ కోడ్ మర్చిపోయారా?)
               </button>
 
               <button
@@ -317,23 +405,33 @@ export default function ShopCodeLockScreen({
               </button>
             </div>
           </div>
-        ) : (
-          /* VIEW B: Password Fallback & Shop Code Reset */
-          <form onSubmit={handlePasswordUnlock} style={styles.form}>
-            <div style={styles.passwordFallbackNotice}>
-              <strong>Unlock with Account Password</strong>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                Enter your master login password to unlock and optionally update your Shop Code.
+        )}
+
+        {/* ================================================================= */}
+        {/* VIEW 2: FORGOT STEP 1 - ASK USERNAME & PASSWORD                   */}
+        {/* ================================================================= */}
+        {mode === 'forgot_step1' && (
+          <form onSubmit={handleVerifyCredentials} style={styles.form}>
+            <div style={styles.noticeBox}>
+              <div style={{ fontWeight: '700', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <KeyRound size={15} />
+                <span>Step 1: ఖాతా భద్రత ధృవీకరణ (Verify Account)</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px', lineHeight: '1.4' }}>
+                ఎవరైనా మీ డేటా చూడకుండా ఉండటానికి, దయచేసి మీ <strong>యూజర్ నేమ్</strong> మరియు <strong>పాస్‌వర్డ్</strong> నమోదు చేయండి. అవి సరిగ్గా ఉంటేనే క్రొత్త షాప్ కోడ్ ఆప్షన్ వస్తుంది.
               </div>
             </div>
 
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Account Password</label>
+              <label style={styles.label}>
+                <User size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                User Name (యూజర్ నేమ్)
+              </label>
               <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="Enter account password"
+                type="text"
+                value={forgotUsername}
+                onChange={(e) => setForgotUsername(e.target.value)}
+                placeholder="Enter your login username"
                 style={styles.input}
                 disabled={isVerifying}
                 required
@@ -342,18 +440,113 @@ export default function ShopCodeLockScreen({
             </div>
 
             <div style={styles.inputGroup}>
-              <label style={styles.label}>New 4-Digit Shop Code (Optional)</label>
-              <input
-                type="text"
-                value={newShopCodeInput}
-                onChange={(e) => setNewShopCodeInput(e.target.value)}
-                placeholder="e.g. 1234 or SRI01"
-                style={styles.input}
-                disabled={isVerifying}
-              />
+              <label style={styles.label}>
+                <Lock size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                Account Password (ఖాతా పాస్‌వర్డ్)
+              </label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showForgotPassword ? 'text' : 'password'}
+                  value={forgotPassword}
+                  onChange={(e) => setForgotPassword(e.target.value)}
+                  placeholder="Enter your account password"
+                  style={{ ...styles.input, paddingRight: '40px' }}
+                  disabled={isVerifying}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(!showForgotPassword)}
+                  style={styles.eyeBtn}
+                  tabIndex={-1}
+                >
+                  {showForgotPassword ? <EyeOff size={16} color="#64748b" /> : <Eye size={16} color="#64748b" />}
+                </button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              isLoading={isVerifying}
+              icon={!isVerifying ? ArrowRight : undefined}
+              style={{ width: '100%', marginTop: '6px' }}
+            >
+              ధృవీకరించండి (VERIFY CREDENTIALS)
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setMode('pin');
+              }}
+              style={{ ...styles.linkBtn, marginTop: '10px', alignSelf: 'center' }}
+            >
+              ← Back to Shop Code PIN
+            </button>
+          </form>
+        )}
+
+        {/* ================================================================= */}
+        {/* VIEW 3: FORGOT STEP 2 - SET & CONFIRM NEW SHOP CODE               */}
+        {/* ================================================================= */}
+        {mode === 'forgot_step2' && (
+          <form onSubmit={handleSaveNewShopCode} style={styles.form}>
+            <div style={styles.verifiedBox}>
+              <div style={{ fontWeight: '700', color: '#065f46', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle2 size={16} color="#10b981" />
+                <span>ఖాతా ధృవీకరించబడింది (Identity Verified ✓)</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#047857', marginTop: '4px' }}>
+                User <strong>{forgotUsername}</strong> ధృవీకరించబడింది. ఇప్పుడు మీ వ్యాపారం కోసం క్రొత్త షాప్ కోడ్ (PIN) సెట్ చేయండి.
+              </div>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>
+                <KeyRound size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                క్రొత్త షాప్ కోడ్ (New 4-Digit Shop Code)
+              </label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showNewCode ? 'text' : 'password'}
+                  value={newShopCode}
+                  onChange={(e) => setNewShopCode(e.target.value)}
+                  placeholder="e.g. 1234 or 5678"
+                  style={{ ...styles.input, paddingRight: '40px', fontWeight: '700', letterSpacing: '0.08em' }}
+                  disabled={isVerifying}
+                  required
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewCode(!showNewCode)}
+                  style={styles.eyeBtn}
+                  tabIndex={-1}
+                >
+                  {showNewCode ? <EyeOff size={16} color="#64748b" /> : <Eye size={16} color="#64748b" />}
+                </button>
+              </div>
               <span style={{ fontSize: '11px', color: '#64748b' }}>
-                Leave blank to keep existing code, or enter a new code to save.
+                ఈ కోడ్ ద్వారా మాత్రమే భవిష్యత్తులో యాప్ అన్‌లాక్ అవుతుంది.
               </span>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>
+                షాప్ కోడ్ నిర్ధారించండి (Confirm New Shop Code)
+              </label>
+              <input
+                type={showNewCode ? 'text' : 'password'}
+                value={confirmNewShopCode}
+                onChange={(e) => setConfirmNewShopCode(e.target.value)}
+                placeholder="Re-enter new shop code"
+                style={{ ...styles.input, fontWeight: '700', letterSpacing: '0.08em' }}
+                disabled={isVerifying}
+                required
+              />
             </div>
 
             <Button
@@ -362,20 +555,20 @@ export default function ShopCodeLockScreen({
               size="lg"
               isLoading={isVerifying}
               icon={!isVerifying ? Unlock : undefined}
-              style={{ width: '100%', marginTop: '4px' }}
+              style={{ width: '100%', marginTop: '6px', background: '#059669' }}
             >
-              VERIFY &amp; UNLOCK
+              కోడ్ సేవ్ చేసి డాష్‌బోర్డ్ తెరవండి (SAVE &amp; UNLOCK)
             </Button>
 
             <button
               type="button"
               onClick={() => {
                 setError(null);
-                setShowPasswordFallback(false);
+                setMode('pin');
               }}
-              style={{ ...styles.linkBtn, marginTop: '8px', alignSelf: 'center' }}
+              style={{ ...styles.linkBtn, marginTop: '10px', alignSelf: 'center' }}
             >
-              ← Back to Shop Code PIN
+              Cancel &amp; Return to Lock Screen
             </button>
           </form>
         )}
@@ -428,6 +621,17 @@ const styles = {
     justifyContent: 'center',
     margin: '0 auto 14px auto',
     boxShadow: '0 8px 16px rgba(29, 78, 216, 0.35)',
+  },
+  successBadge: {
+    width: '64px',
+    height: '64px',
+    borderRadius: '18px',
+    backgroundColor: '#10b981',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 14px auto',
+    boxShadow: '0 8px 16px rgba(16, 185, 129, 0.35)',
   },
   storePill: {
     display: 'inline-flex',
@@ -486,6 +690,8 @@ const styles = {
     fontSize: '13px',
     fontWeight: '600',
     color: '#334155',
+    display: 'flex',
+    alignItems: 'center',
   },
   inputWrapper: {
     position: 'relative',
@@ -584,13 +790,19 @@ const styles = {
     gap: '6px',
     padding: '4px 8px',
   },
-  passwordFallbackNotice: {
+  noticeBox: {
     backgroundColor: '#eff6ff',
     border: '1px solid #bfdbfe',
-    borderRadius: '8px',
-    padding: '10px 14px',
+    borderRadius: '10px',
+    padding: '12px 14px',
     fontSize: '13px',
-    color: '#1e40af',
+  },
+  verifiedBox: {
+    backgroundColor: '#ecfdf5',
+    border: '1px solid #a7f3d0',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    fontSize: '13px',
   },
   footerNote: {
     marginTop: '16px',

@@ -178,8 +178,9 @@ export function recordStockMovement({ product_id, movement_type, quantity, entry
 /**
  * Retrieve Stock Movement History scoped to authenticated owner
  */
-export function getStockHistory({ product_id, startDate, endDate, limit = 100, offset = 0 } = {}, userId = 1) {
-  const uid = Number(userId || 1);
+export function getStockHistory({ product_id, productId, startDate, endDate, limit = 100, offset = 0, userId: optUserId } = {}, userId = 1) {
+  const uid = Number(optUserId || userId || 1);
+  const targetProductId = product_id || productId;
   let query = `
     SELECT 
       se.id,
@@ -197,9 +198,9 @@ export function getStockHistory({ product_id, startDate, endDate, limit = 100, o
   `;
   const params = [uid];
 
-  if (product_id) {
+  if (targetProductId) {
     query += ' AND se.product_id = ?';
-    params.push(product_id);
+    params.push(targetProductId);
   }
 
   if (startDate) {
@@ -251,3 +252,5 @@ export function getTotalStockSummary(userId = 1) {
     total_varieties: Number(varietiesCount ? varietiesCount.total_varieties : 0),
   };
 }
+
+export const getStockEntries = getStockHistory;

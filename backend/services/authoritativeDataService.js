@@ -22,6 +22,20 @@ import * as reportService from './reportService.js';
 import * as authService from './authService.js';
 
 /**
+ * Safely execute a MySQL operation with fallback to SQLite if connection fails.
+ */
+async function tryMySQL(fn, opName) {
+  if (!mysql.isMySQLConfigured()) return { handled: false };
+  try {
+    const result = await fn();
+    return { handled: true, result };
+  } catch (err) {
+    console.warn(`[Authoritative] MySQL ${opName || 'query'} failed, falling back to local SQLite:`, err.message);
+    return { handled: false, error: err };
+  }
+}
+
+/**
  * Returns overall cloud & offline queue status
  */
 export async function getSyncStatus(userId = 1) {
@@ -111,8 +125,9 @@ function generateIdempotencyKey(entityType, entityId, timestamp = Date.now()) {
 
 export async function recordSaleAuthoritative(entryDate, amount, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.recordDailySales(entryDate, amount, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.recordDailySales(entryDate, amount, uid), 'recordSale');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const numericAmount = Number(amount);
   const idempotencyKey = generateIdempotencyKey('sale', entryDate);
@@ -164,8 +179,9 @@ export async function recordSaleAuthoritative(entryDate, amount, userId = 1) {
 
 export async function getSalesAuthoritative({ month, startDate, endDate, limit = 100, offset = 0, userId = 1 }) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getSalesHistory({ month, startDate, endDate, limit, offset, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getSalesHistory({ month, startDate, endDate, limit, offset, userId: uid }), 'getSalesHistory');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -196,8 +212,9 @@ export async function getSalesAuthoritative({ month, startDate, endDate, limit =
 
 export async function getTodaySalesAuthoritative(date, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getTodaySales(date, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getTodaySales(date, uid), 'getTodaySales');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const targetDate = date || salesService.getTodayDateString();
   if (supabaseService.isSupabaseConfigured()) {
@@ -227,8 +244,9 @@ export async function getTodaySalesAuthoritative(date, userId = 1) {
 
 export async function getMonthlyTotalSalesAuthoritative(month, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getMonthlyTotalSales(month, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getMonthlyTotalSales(month, uid), 'getMonthlyTotalSales');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const targetMonth = month || calculationService.getCurrentMonthString();
   if (supabaseService.isSupabaseConfigured()) {
@@ -253,8 +271,9 @@ export async function getMonthlyTotalSalesAuthoritative(month, userId = 1) {
 
 export async function getSalesByDateAuthoritative(date, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getSalesByDate(date, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getSalesByDate(date, uid), 'getSalesByDate');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -284,8 +303,9 @@ export async function getSalesByDateAuthoritative(date, userId = 1) {
 
 export async function recordExpenseAuthoritative(expenseData, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.addExpense({ ...expenseData, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.addExpense({ ...expenseData, userId: uid }), 'addExpense');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const yearMonth = (expenseData.expense_date || '').substring(0, 7) || new Date().toISOString().substring(0, 7);
   const idempotencyKey = generateIdempotencyKey('expense', 'new');
@@ -329,8 +349,9 @@ export async function recordExpenseAuthoritative(expenseData, userId = 1) {
 
 export async function updateExpenseAuthoritative(id, updateData, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.updateExpense(id, { ...updateData, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.updateExpense(id, { ...updateData, userId: uid }), 'updateExpense');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const idempotencyKey = generateIdempotencyKey('expense_update', id);
   const yearMonth = (updateData.expense_date || '').substring(0, 7) || new Date().toISOString().substring(0, 7);
@@ -349,8 +370,9 @@ export async function updateExpenseAuthoritative(id, updateData, userId = 1) {
 
 export async function deleteExpenseAuthoritative(id, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.deleteExpense(id, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.deleteExpense(id, uid), 'deleteExpense');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
 
   if (supabaseService.isSupabaseConfigured()) {
@@ -366,8 +388,9 @@ export async function deleteExpenseAuthoritative(id, userId = 1) {
 
 export async function getExpensesAuthoritative({ month, startDate, endDate, expenseType, limit = 100, offset = 0, userId = 1 }) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getExpenses({ month, startDate, endDate, expenseType, limit, offset, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getExpenses({ month, startDate, endDate, expenseType, limit, offset, userId: uid }), 'getExpenses');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -402,10 +425,20 @@ export async function getExpensesAuthoritative({ month, startDate, endDate, expe
   return expenseService.getExpenses({ month, category: expenseType, startDate, endDate, limit, offset, userId: uid });
 }
 
+export async function getExpenseByIdAuthoritative(id, userId = 1) {
+  const uid = Number(userId || 1);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getExpenseById(id, uid), 'getExpenseById');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
+  }
+  return expenseService.getExpenseById(id, uid) || null;
+}
+
 export async function getTodayExpensesAuthoritative(date, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getTodayExpenses(date, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getTodayExpenses(date, uid), 'getTodayExpenses');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const targetDate = date || salesService.getTodayDateString();
   if (supabaseService.isSupabaseConfigured()) {
@@ -432,8 +465,9 @@ export async function getTodayExpensesAuthoritative(date, userId = 1) {
 
 export async function getMonthlyExpensesByCategoryAuthoritative(month, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getMonthlyExpensesByCategory(month, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getMonthlyExpensesByCategory(month, uid), 'getMonthlyExpensesByCategory');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const targetMonth = month || calculationService.getCurrentMonthString();
   if (supabaseService.isSupabaseConfigured()) {
@@ -481,8 +515,9 @@ export async function addProductVarietyAuthoritative(name, userId = 1) {
   }
   const cleanName = name.trim();
 
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.addProductVariety(cleanName, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.addProductVariety(cleanName, uid), 'addProductVariety');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
 
   // Validate duplicate variety per user in local SQLite first
@@ -525,8 +560,9 @@ export async function addProductVarietyAuthoritative(name, userId = 1) {
 
 export async function getProductVarietiesAuthoritative(userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getProductVarieties(uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getProductVarieties(uid), 'getProductVarieties');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -563,8 +599,9 @@ export async function getProductVarietiesAuthoritative(userId = 1) {
 
 export async function getProductVarietyByIdAuthoritative(id, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getProductVarietyById(id, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getProductVarietyById(id, uid), 'getProductVarietyById');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const varieties = await getProductVarietiesAuthoritative(uid);
   const found = varieties.find((v) => Number(v.id) === Number(id));
@@ -574,8 +611,9 @@ export async function getProductVarietyByIdAuthoritative(id, userId = 1) {
 
 export async function recordStockMovementAuthoritative(movementData, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.recordStockMovement({ ...movementData, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.recordStockMovement({ ...movementData, userId: uid }), 'recordStockMovement');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const yearMonth = (movementData.entry_date || '').substring(0, 7) || new Date().toISOString().substring(0, 7);
   const idempotencyKey = generateIdempotencyKey('stock_movement', movementData.product_id);
@@ -616,8 +654,9 @@ export async function recordStockMovementAuthoritative(movementData, userId = 1)
 
 export async function getStockEntriesAuthoritative({ productId, startDate, endDate, limit = 100, offset = 0, userId = 1 }) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getStockHistory({ productId, startDate, endDate, limit, offset, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getStockHistory({ productId, startDate, endDate, limit, offset, userId: uid }), 'getStockHistory');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -645,8 +684,9 @@ export async function getStockEntriesAuthoritative({ productId, startDate, endDa
 
 export async function getStockSummaryAuthoritative(userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getStockSummary(uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getStockSummary(uid), 'getStockSummary');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -693,8 +733,9 @@ export async function getStockSummaryAuthoritative(userId = 1) {
 
 export async function addLenderAuthoritative(lenderData, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.addLender({ ...lenderData, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.addLender({ ...lenderData, userId: uid }), 'addLender');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   const yearMonth = (lenderData.loan_date || '').substring(0, 7) || new Date().toISOString().substring(0, 7);
   const idempotencyKey = generateIdempotencyKey('lender', lenderData.name);
@@ -766,24 +807,27 @@ export async function addLenderAuthoritative(lenderData, userId = 1) {
 
 export async function updateLenderAuthoritative(id, updateData, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.updateLender(id, { ...updateData, userId: uid });
+  const mysqlRes = await tryMySQL(() => mysqlDataService.updateLender(id, { ...updateData, userId: uid }), 'updateLender');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   return lenderService.updateLender(id, updateData, uid);
 }
 
 export async function deleteLenderAuthoritative(id, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.deleteLender(id, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.deleteLender(id, uid), 'deleteLender');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   return lenderService.deleteLender(id, uid);
 }
 
 export async function recordLenderRepaymentAuthoritative(id, repaymentAmount, notes, userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.recordLenderPayment(id, repaymentAmount, notes, uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.recordLenderPayment(id, repaymentAmount, notes, uid), 'recordLenderPayment');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
 
   if (supabaseService.isSupabaseConfigured()) {
@@ -799,8 +843,9 @@ export async function recordLenderRepaymentAuthoritative(id, repaymentAmount, no
 
 export async function getLendersAuthoritative(userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getLenders(uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getLenders(uid), 'getLenders');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -838,8 +883,9 @@ export async function getLendersAuthoritative(userId = 1) {
 
 export async function getBusinessProfileAuthoritative(userId = 1) {
   const uid = Number(userId || 1);
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getBusinessProfile(uid);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getBusinessProfile(uid), 'getBusinessProfile');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -866,7 +912,11 @@ export async function getBusinessProfileAuthoritative(userId = 1) {
 export async function upsertBusinessProfileAuthoritative(userId = 1, profileData) {
   const uid = Number(userId || 1);
   if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.upsertBusinessProfile(uid, profileData);
+    try {
+      return await mysqlDataService.upsertBusinessProfile(uid, profileData);
+    } catch (err) {
+      console.warn('[Authoritative] MySQL upsert profile failed, falling back to SQLite:', err.message);
+    }
   }
   if (supabaseService.isSupabaseConfigured()) {
     try {
@@ -885,12 +935,25 @@ export async function upsertBusinessProfileAuthoritative(userId = 1, profileData
 // ============================================================================
 
 export async function getMonthlyFinancialSummaryAuthoritative(targetMonth = null, userId = 1) {
-  const uid = Number(userId || 1);
-  const month = targetMonth || calculationService.getCurrentMonthString();
-  const todayDate = salesService.getTodayDateString();
+  let month = null;
+  let customDate = null;
+  let uid = 1;
 
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getDashboardSummary({ date: todayDate, month, userId: uid });
+  if (targetMonth && typeof targetMonth === 'object') {
+    month = targetMonth.month;
+    customDate = targetMonth.date;
+    uid = Number(targetMonth.userId || userId || 1);
+  } else {
+    month = targetMonth;
+    uid = Number(userId || 1);
+  }
+
+  const todayDate = customDate || salesService.getTodayDateString();
+  const finalMonth = month || todayDate.substring(0, 7);
+
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getDashboardSummary({ date: todayDate, month: finalMonth, userId: uid }), 'getDashboardSummary');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
 
   if (supabaseService.isSupabaseConfigured()) {
@@ -974,7 +1037,7 @@ export async function getMonthlyFinancialSummaryAuthoritative(targetMonth = null
       console.warn('[Authoritative] Supabase financial summary failed, falling back to SQLite cache:', err.message);
     }
   }
-  return calculationService.getDashboardSummary({ month, userId: uid });
+  return calculationService.getDashboardSummary({ date: todayDate, month: finalMonth, userId: uid });
 }
 
 export async function generateMonthlyReportDataAuthoritative(yearMonth, userId = 1) {
@@ -1144,7 +1207,12 @@ export async function generateMonthlyReportDataAuthoritative(yearMonth, userId =
 
 export async function signupUserAuthoritative({ username, password, confirmPassword }) {
   if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.signupUser({ username, password, confirmPassword });
+    try {
+      return await mysqlDataService.signupUser({ username, password, confirmPassword });
+    } catch (err) {
+      if (err.statusCode === 409 || err.message?.includes('already taken')) throw err;
+      console.warn('[Authoritative] MySQL signup failed, falling back to local SQLite:', err.message);
+    }
   }
 
   if (supabaseService.isSupabaseConfigured()) {
@@ -1195,7 +1263,12 @@ export async function signupUserAuthoritative({ username, password, confirmPassw
 
 export async function loginUserAuthoritative({ username, password, clientIp }) {
   if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.loginUser({ username, password, clientIp });
+    try {
+      return await mysqlDataService.loginUser({ username, password, clientIp });
+    } catch (err) {
+      if (err.message?.includes('Invalid') || err.message?.includes('password') || err.message?.includes('Username')) throw err;
+      console.warn('[Authoritative] MySQL login failed, falling back to local SQLite:', err.message);
+    }
   }
 
   if (supabaseService.isSupabaseConfigured()) {
@@ -1258,8 +1331,9 @@ export async function loginUserAuthoritative({ username, password, clientIp }) {
 }
 
 export async function logoutUserAuthoritative(token) {
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.logoutUser(token);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.logoutUser(token), 'logoutUser');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
 
   if (supabaseService.isSupabaseConfigured()) {
@@ -1273,8 +1347,9 @@ export async function logoutUserAuthoritative(token) {
 }
 
 export async function getUserFromTokenAuthoritative(token) {
-  if (mysql.isMySQLConfigured()) {
-    return mysqlDataService.getUserFromToken(token);
+  const mysqlRes = await tryMySQL(() => mysqlDataService.getUserFromToken(token), 'getUserFromToken');
+  if (mysqlRes.handled) {
+    return mysqlRes.result;
   }
   return authService.getUserFromToken(token);
 }

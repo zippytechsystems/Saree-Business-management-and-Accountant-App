@@ -131,7 +131,9 @@ export function updateLender(id, { name, mobile, place, amount_given, amount_pai
   const uid = Number(userId || 1);
   const existing = getLenderById(id, uid);
   if (!existing) {
-    throw new Error(`Lender with ID ${id} not found.`);
+    const err = new Error(`Lender with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   const updatedName = name !== undefined ? name : existing.name;
@@ -187,7 +189,9 @@ export function recordLenderPayment(id, additionalPayment, userId = 1) {
   const uid = Number(userId || 1);
   const existing = getLenderById(id, uid);
   if (!existing) {
-    throw new Error(`Lender with ID ${id} not found.`);
+    const err = new Error(`Lender with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   const numPayment = Number(additionalPayment);
@@ -231,7 +235,9 @@ export function deleteLender(id, userId = 1) {
   const uid = Number(userId || 1);
   const existing = getLenderById(id, uid);
   if (!existing) {
-    throw new Error(`Lender with ID ${id} not found.`);
+    const err = new Error(`Lender with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   db.prepare('DELETE FROM lenders WHERE id = ? AND user_id = ?').run(id, uid);

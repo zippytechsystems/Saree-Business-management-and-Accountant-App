@@ -158,7 +158,7 @@ async function runStage7Tests() {
   const config = cloudBackupService.getCloudConfig();
   assert(typeof config === 'object', 'getCloudConfig returns configuration object');
   assert(typeof config.isConfigured === 'boolean', 'getCloudConfig returns isConfigured boolean');
-  assert(['none', 'supabase', 'firebase', 'turso'].includes(config.provider), `Provider is recognized: ${config.provider}`);
+  assert(['none', 'supabase', 'firebase', 'turso', 'hostinger_sqlite', 'hostinger_mysql'].includes(config.provider), `Provider is recognized: ${config.provider}`);
 
   // Test 4.3: Verify Backup Status structure
   const backupStatus = cloudBackupService.getBackupStatus();
@@ -231,7 +231,7 @@ async function runStage7Tests() {
 
     await new Promise((r) => setTimeout(r, 100));
     const latestStockLog = db.prepare('SELECT * FROM cloud_sync_log ORDER BY id DESC LIMIT 1').get();
-    assert(latestStockLog.entity_type === 'stock_movement', 'cloud_sync_log recorded stock_movement');
+    assert(latestStockLog.entity_type === 'stock_movement' || latestStockLog.entity_type === 'stock_entries', 'cloud_sync_log recorded stock_movement');
   }
 
   // -------------------------------------------------------------
@@ -239,15 +239,25 @@ async function runStage7Tests() {
   // -------------------------------------------------------------
   console.log('\n--- 6. Cloud Backup HTTP Endpoints Tests ---');
 
+  let stage7Token = null;
+  const existingSession = db.prepare("SELECT token FROM sessions WHERE user_id = 1 AND expires_at > datetime('now') ORDER BY id DESC LIMIT 1").get();
+  if (existingSession) {
+    stage7Token = existingSession.token;
+  } else {
+    stage7Token = 'stage7_test_token_' + Date.now();
+    db.prepare("INSERT INTO sessions (user_id, token, expires_at) VALUES (1, ?, datetime('now', '+7 day'))").run(stage7Token);
+  }
+  const stage7Headers = { Authorization: `Bearer ${stage7Token}` };
+
   // Test 6.1: GET /api/cloud-backup/status
-  const statusRes = await fetch(`${BASE_URL}/cloud-backup/status`);
+  const statusRes = await fetch(`${BASE_URL}/cloud-backup/status`, { headers: stage7Headers });
   const statusData = await statusRes.json();
   assert(statusRes.status === 200, 'GET /api/cloud-backup/status returns HTTP 200');
   assert(statusData.success === true, 'GET /api/cloud-backup/status returns success: true');
   assert(statusData.data.status_label !== undefined, 'Status contains formatted status label');
 
   // Test 6.2: GET /api/cloud-backup/history
-  const historyRes = await fetch(`${BASE_URL}/cloud-backup/history`);
+  const historyRes = await fetch(`${BASE_URL}/cloud-backup/history`, { headers: stage7Headers });
   const historyData = await historyRes.json();
   assert(historyRes.status === 200, 'GET /api/cloud-backup/history returns HTTP 200');
   assert(Array.isArray(historyData.data), 'History returns an array of monthly summaries');
@@ -258,7 +268,7 @@ async function runStage7Tests() {
   }
 
   // Test 6.3: POST /api/cloud-backup/sync-now
-  const syncNowRes = await fetch(`${BASE_URL}/cloud-backup/sync-now`, { method: 'POST' });
+  const syncNowRes = await fetch(`${BASE_URL}/cloud-backup/sync-now`, { method: 'POST', headers: stage7Headers });
   const syncNowData = await syncNowRes.json();
   assert(syncNowRes.status === 200, 'POST /api/cloud-backup/sync-now returns HTTP 200');
   assert(syncNowData.success === true, 'POST /api/cloud-backup/sync-now returns success: true');
@@ -275,7 +285,7 @@ async function runStage7Tests() {
   // Test 7.2: Safe Restore API creates pre-restore physical SQLite backup
   const restoreRes = await fetch(`${BASE_URL}/cloud-backup/restore`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...stage7Headers },
     body: JSON.stringify({ month: '2026-09' }),
   });
   const restoreData = await restoreRes.json();

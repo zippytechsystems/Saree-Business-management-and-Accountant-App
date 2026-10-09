@@ -132,6 +132,10 @@ export function signupUser({ username, password, confirm_password, confirmPasswo
     throw new Error('Password is required.');
   }
 
+  if (password.length < 6) {
+    throw new Error('Password must be at least 6 characters long.');
+  }
+
   if (confirm !== undefined && password !== confirm) {
     throw new Error('Password and confirmation password do not match.');
   }

@@ -17,6 +17,7 @@ import * as calculationService from '../services/calculationService.js';
 import * as reportService from '../services/reportService.js';
 import * as authService from '../services/authService.js';
 import * as authoritativeDataService from '../services/authoritativeDataService.js';
+import * as cloudBackupService from '../services/cloudBackupService.js';
 
 // Middleware
 import { authenticateOwner, requireAuth } from '../middleware/authMiddleware.js';
@@ -136,31 +137,65 @@ router.post('/auth/verify-shop-code', authenticateOwner, async (req, res) => {
     const { shop_code } = req.body || {};
     const inputCode = (shop_code !== undefined ? String(shop_code) : '').trim();
 
-    const profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
-    const storedCode = (profile?.shop_code !== undefined ? String(profile.shop_code) : '').trim();
-
-    // If no shop code was ever set yet, allow entry and notify client to prompt for one
-    if (!storedCode) {
-      return res.status(200).json({
-        success: true,
-        verified: true,
-        needs_setup: true,
-        message: 'No shop code currently set. Please setup a 4-digit code in settings.',
-      });
-    }
-
-    if (inputCode !== storedCode) {
+    if (!inputCode) {
       return res.status(400).json({
         success: false,
         verified: false,
-        error: 'Incorrect Shop Code. Please enter the valid code.',
+        error: 'దయచేసి మీ షాప్ కోడ్ ఎంటర్ చేయండి (Please enter your Shop Code).',
+      });
+    }
+
+    const profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    const storedCode = (profile?.shop_code !== undefined ? String(profile.shop_code) : '').trim();
+    // Expected code: configured shop_code, or default '1234'
+    const expectedCode = storedCode || '1234';
+
+    if (inputCode !== expectedCode) {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        error: 'తప్పు షాప్ కోడ్ (Incorrect Shop Code). దయచేసి సరైన కోడ్ నమోదు చేయండి.',
       });
     }
 
     return res.status(200).json({
       success: true,
       verified: true,
+      shop_code: expectedCode,
       message: 'Store unlocked successfully.',
+    });
+  } catch (error) {
+    handleError(res, error, 400);
+  }
+});
+
+// Reset / Change Shop Code (Requires verified account session)
+router.post('/auth/reset-shop-code', authenticateOwner, async (req, res) => {
+  try {
+    const { shop_code } = req.body || {};
+    const cleanCode = (shop_code !== undefined ? String(shop_code) : '').trim();
+
+    if (!cleanCode || cleanCode.length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: 'క్రొత్త షాప్ కోడ్ కనీసం 3 లేదా 4 అంకెలు ఉండాలి (Shop Code must be at least 3 digits).',
+      });
+    }
+
+    const existing = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    const updatedProfile = await authoritativeDataService.upsertBusinessProfileAuthoritative(req.userId, {
+      business_name: existing?.business_name || `${req.user?.username || 'Owner'} Business`,
+      business_address: existing?.business_address || 'Main Store',
+      business_nickname: existing?.business_nickname || req.user?.username || 'Saree Shop',
+      shop_code: cleanCode,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'షాప్ కోడ్ విజయవంతంగా మార్చబడింది (Shop Code updated successfully).',
+      shop_code: cleanCode,
+      business_profile: updatedProfile,
+      data: updatedProfile,
     });
   } catch (error) {
     handleError(res, error, 400);
@@ -299,12 +334,19 @@ router.get('/business-profile', authenticateOwner, async (req, res) => {
 // Create or Update Business Profile
 const handleBusinessProfileSave = async (req, res) => {
   try {
-    const { business_name, business_address, business_nickname, shop_code } = req.body;
+    const existing = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    const { business_name, business_address, business_nickname, shop_code } = req.body || {};
+
+    const cleanName = (business_name !== undefined ? String(business_name).trim() : '') || existing?.business_name || `${req.user?.username || 'Owner'} Business`;
+    const cleanAddress = (business_address !== undefined ? String(business_address).trim() : '') || existing?.business_address || 'Main Store';
+    const cleanNickname = (business_nickname !== undefined ? String(business_nickname).trim() : '') || existing?.business_nickname || req.user?.username || 'Saree Shop';
+    const cleanShopCode = shop_code !== undefined ? String(shop_code).trim() : (existing?.shop_code || '');
+
     const profile = await authoritativeDataService.upsertBusinessProfileAuthoritative(req.userId, {
-      business_name,
-      business_address,
-      business_nickname,
-      shop_code: (shop_code !== undefined ? String(shop_code) : '').trim(),
+      business_name: cleanName,
+      business_address: cleanAddress,
+      business_nickname: cleanNickname,
+      shop_code: cleanShopCode,
     });
     res.json({
       success: true,
@@ -490,6 +532,26 @@ router.get('/expenses/monthly', async (req, res) => {
     });
   } catch (error) {
     handleError(res, error, 400);
+  }
+});
+
+// Get expense by ID
+router.get('/expenses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await authoritativeDataService.getExpenseByIdAuthoritative(id, req.userId);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        error: `Expense with ID ${id} not found.`,
+      });
+    }
+    res.json({
+      success: true,
+      data: item,
+    });
+  } catch (error) {
+    handleError(res, error, 404);
   }
 });
 
@@ -705,6 +767,7 @@ router.get('/lenders/summary', async (req, res) => {
         total_amount_given: totalGiven,
         total_amount_paid: totalPaid,
         total_balance_due: totalBalance,
+        total_lender_due: totalBalance,
         active_loans_count: activeCount,
         settled_loans_count: settledCount,
       },
@@ -848,9 +911,14 @@ router.get('/calculations/monthly', async (req, res) => {
 // Master Dashboard KPI Summary (All metrics)
 router.get('/calculations/dashboard', async (req, res) => {
   try {
-    const { month } = req.query;
-    const targetMonth = month || calculationService.getCurrentMonthString();
-    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative(targetMonth, req.userId);
+    const { date, month } = req.query;
+    const targetDate = date || salesService.getTodayDateString();
+    const targetMonth = month || targetDate.substring(0, 7);
+    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative({
+      date: targetDate,
+      month: targetMonth,
+      userId: req.userId,
+    });
     res.json({
       success: true,
       data: summary,
@@ -862,9 +930,14 @@ router.get('/calculations/dashboard', async (req, res) => {
 
 router.get('/calculations/summary', async (req, res) => {
   try {
-    const { month } = req.query;
-    const targetMonth = month || calculationService.getCurrentMonthString();
-    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative(targetMonth, req.userId);
+    const { date, month } = req.query;
+    const targetDate = date || salesService.getTodayDateString();
+    const targetMonth = month || targetDate.substring(0, 7);
+    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative({
+      date: targetDate,
+      month: targetMonth,
+      userId: req.userId,
+    });
     res.json({
       success: true,
       data: summary,
