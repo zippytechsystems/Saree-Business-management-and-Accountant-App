@@ -3,15 +3,15 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
+  "main": "loader.cjs",
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "client": "vite",
-    "server": "node --no-warnings=ExperimentalWarning server.js",
-    "start": "node --no-warnings=ExperimentalWarning server.js",
+    "server": "node loader.cjs",
+    "start": "node loader.cjs",
     "build": "vite build",
     "preview": "vite preview",
     "migrate:mysql": "node scripts/migrate_sqlite_to_mysql.js",
