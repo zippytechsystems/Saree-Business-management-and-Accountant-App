@@ -302,9 +302,22 @@ const startServer = async () => {
   }
 };
 
+const isRunningOnLiteSpeed = () => {
+  if (typeof process !== 'undefined') {
+    if (process.env.LSNODE_CONSOLE_LOG || process.env.LSNODE_ROOT) return true;
+    if (process.argv && process.argv.some((a) => typeof a === 'string' && a.includes('lsnode.js'))) return true;
+  }
+  return false;
+};
+
 if (typeof PhusionPassenger !== 'undefined') {
   app.listen('passenger', () => {
     console.log('[Server] Backend service running under Phusion Passenger');
+    startServer();
+  });
+} else if (isRunningOnLiteSpeed()) {
+  app.listen(() => {
+    console.log('[Server] Backend service running under LiteSpeed (lsnode.js FastCGI)');
     startServer();
   });
 } else {
