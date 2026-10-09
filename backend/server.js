@@ -1,6 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+dotenv.config({ path: path.join(rootDir, '.env') });
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 
@@ -29,8 +36,6 @@ import apiRoutes from './routes/api.js';
 // Initialize local database schema & authentication migrations
 initDatabase();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, '../dist');
 
 const app = express();

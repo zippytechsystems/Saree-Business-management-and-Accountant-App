@@ -1,7 +1,7 @@
 -- ====================================================================
 -- Hostinger MySQL Complete Database & Data Dump
 -- Application: Saree Business Management & Accountant App
--- Generated: 2026-10-09T13:56:08.200Z
+-- Generated: 2026-10-09T14:15:49.339Z
 -- Ready for 1-click phpMyAdmin Import in Hostinger
 -- ====================================================================
 

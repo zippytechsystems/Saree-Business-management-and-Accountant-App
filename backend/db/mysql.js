@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -5,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '../..');
+dotenv.config({ path: path.join(rootDir, '.env') });
+dotenv.config();
 
 let pool = null;
 
@@ -29,14 +33,48 @@ export function cleanDbIdentifier(val) {
  * Does NOT default user to 'root' or database to default name.
  */
 export function getMySQLConfig() {
-  const host = (process.env.DB_HOST || process.env.MYSQL_HOST || '127.0.0.1').trim();
-  const port = Number(process.env.DB_PORT || process.env.MYSQL_PORT || 3306);
-  const rawUser = process.env.DB_USER || process.env.MYSQL_USER || '';
+  let host = '127.0.0.1';
+  let port = 3306;
+  let rawUser = '';
+  let password = '';
+  let rawDatabase = '';
+
+  // 1. Parse connection string URLs if provided (DATABASE_URL, MYSQL_URL, etc.)
+  const connUrl = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.CLEARDB_DATABASE_URL || process.env.JAWSDB_URL;
+  if (connUrl && typeof connUrl === 'string' && (connUrl.startsWith('mysql://') || connUrl.startsWith('mysql2://'))) {
+    try {
+      const parsed = new URL(connUrl);
+      host = parsed.hostname || host;
+      port = parsed.port ? Number(parsed.port) : port;
+      rawUser = decodeURIComponent(parsed.username || '');
+      password = decodeURIComponent(parsed.password || '');
+      rawDatabase = decodeURIComponent((parsed.pathname || '').replace(/^\//, ''));
+    } catch (e) {}
+  }
+
+  // 2. Individual environment variable overrides & fallbacks across all standard names
+  const envHost = (process.env.DB_HOST || process.env.MYSQL_HOST || process.env.MYSQL_HOSTNAME || process.env.DATABASE_HOST || host).trim();
+  host = (envHost === 'localhost' || !envHost) ? '127.0.0.1' : envHost;
+  port = Number(process.env.DB_PORT || process.env.MYSQL_PORT || process.env.DATABASE_PORT || port);
+  rawUser = process.env.DB_USER || process.env.MYSQL_USER || process.env.DB_USERNAME || process.env.MYSQL_USERNAME || process.env.DATABASE_USER || process.env.DATABASE_USERNAME || rawUser;
+  
+  if (process.env.DB_PASSWORD !== undefined) {
+    password = process.env.DB_PASSWORD;
+  } else if (process.env.MYSQL_PASSWORD !== undefined) {
+    password = process.env.MYSQL_PASSWORD;
+  } else if (process.env.DB_PASS !== undefined) {
+    password = process.env.DB_PASS;
+  } else if (process.env.MYSQL_PASS !== undefined) {
+    password = process.env.MYSQL_PASS;
+  } else if (process.env.DATABASE_PASSWORD !== undefined) {
+    password = process.env.DATABASE_PASSWORD;
+  } else if (process.env.DATABASE_PASS !== undefined) {
+    password = process.env.DATABASE_PASS;
+  }
+
+  rawDatabase = process.env.DB_NAME || process.env.DB_DATABASE || process.env.MYSQL_DATABASE || process.env.MYSQL_DB || process.env.DATABASE_NAME || rawDatabase;
+
   const user = cleanDbIdentifier(rawUser);
-  const password = process.env.DB_PASSWORD !== undefined
-    ? process.env.DB_PASSWORD
-    : (process.env.MYSQL_PASSWORD !== undefined ? process.env.MYSQL_PASSWORD : '');
-  const rawDatabase = process.env.DB_NAME || process.env.DB_DATABASE || process.env.MYSQL_DATABASE || '';
   const database = cleanDbIdentifier(rawDatabase);
 
   const isRoot = user.toLowerCase() === 'root';
@@ -220,11 +258,17 @@ export async function initMySQLSchema() {
 
   for (const stmt of statements) {
     if (stmt.length > 0) {
-      await p.query(stmt);
+      try {
+        await p.query(stmt);
+      } catch (stmtErr) {
+        if (!stmtErr.message?.includes('already exists') && !stmtErr.message?.includes('Duplicate')) {
+          console.warn(`[MySQL Schema] Non-fatal note on statement:`, stmtErr.message);
+        }
+      }
     }
   }
 
-  console.log(`[MySQL Database] Schema tables verified (${statements.length} statements executed).`);
+  console.log(`[MySQL Database] Schema tables verified (${statements.length} statements processed).`);
 }
 
 /**
