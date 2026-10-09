@@ -31,7 +31,7 @@ const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, '../dist');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT && !isNaN(Number(process.env.PORT)) ? Number(process.env.PORT) : (process.env.PORT || 3000);
 
 // ====================================================================
 // COMPREHENSIVE SECURITY & PERFORMANCE MIDDLEWARE
@@ -266,9 +266,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, async () => {
-  console.log(`[Server] Backend service running on http://localhost:${PORT}`);
-
+const startServer = async () => {
   // Check Hostinger MySQL Configuration
   const isMySQL = mysql.isMySQLConfigured();
   if (isMySQL) {
@@ -302,6 +300,18 @@ app.listen(PORT, async () => {
     console.log('[Hostinger Database] Mode: hostinger_authoritative');
     console.log('================================================================');
   }
-});
+};
+
+if (typeof PhusionPassenger !== 'undefined') {
+  app.listen('passenger', () => {
+    console.log('[Server] Backend service running under Phusion Passenger');
+    startServer();
+  });
+} else {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Server] Backend service running on http://0.0.0.0:${PORT}`);
+    startServer();
+  });
+}
 
 export default app;

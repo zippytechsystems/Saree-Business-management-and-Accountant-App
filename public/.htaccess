@@ -3,6 +3,12 @@
   RewriteBase /
   RewriteRule ^index\.html$ - [L]
 
+  # Proxy to Node.js backend (port 3000) if Apache proxy module is enabled
+  <IfModule mod_proxy.c>
+    RewriteCond %{REQUEST_URI} ^/api [NC]
+    RewriteRule ^api/(.*)$ http://127.0.0.1:3000/api/$1 [P,L]
+  </IfModule>
+
   # Never rewrite API endpoints to index.html
   RewriteCond %{REQUEST_URI} ^/api [NC]
   RewriteRule ^ - [L]

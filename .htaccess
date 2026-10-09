@@ -14,7 +14,13 @@ RedirectMatch 404 ^/(data|backend|\.env|ecosystem\.config\.cjs|package\.json)(/|
   RewriteEngine On
   RewriteBase /
 
-  # 2. API REQUESTS: Never rewrite /api/* to index.html (let Node.js handle them)
+  # 2. API REQUESTS: Proxy to Node.js backend (port 3000) if Apache proxy module is enabled
+  <IfModule mod_proxy.c>
+    RewriteCond %{REQUEST_URI} ^/api [NC]
+    RewriteRule ^api/(.*)$ http://127.0.0.1:3000/api/$1 [P,L]
+  </IfModule>
+
+  # Prevent rewriting /api/* to index.html
   RewriteCond %{REQUEST_URI} ^/api [NC]
   RewriteRule ^ - [L]
 

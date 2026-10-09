@@ -9,7 +9,7 @@ module.exports = {
       max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
-        PORT: process.env.PORT || 5000,
+        PORT: process.env.PORT || 3000,
         CLOUD_BACKUP_PROVIDER: 'hostinger',
       },
     },
