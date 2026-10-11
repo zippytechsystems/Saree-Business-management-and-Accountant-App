@@ -29,10 +29,22 @@ export function runAuthMigration() {
       business_name TEXT NOT NULL,
       business_address TEXT NOT NULL,
       business_nickname TEXT NOT NULL,
+      shop_code TEXT DEFAULT '',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Ensure shop_code column exists on existing business_profiles tables
+  try {
+    const bpCols = db.prepare(`PRAGMA table_info(business_profiles);`).all().map((c) => c.name);
+    if (bpCols.length > 0 && !bpCols.includes('shop_code')) {
+      console.log('[Migration] Adding shop_code column to business_profiles...');
+      db.exec(`ALTER TABLE business_profiles ADD COLUMN shop_code TEXT DEFAULT '';`);
+    }
+  } catch (colErr) {
+    console.warn('[Migration] SQLite business_profiles column check warning:', colErr.message);
+  }
 
   // 3. Create sessions table for active tokens & logout
   db.exec(`

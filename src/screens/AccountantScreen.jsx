@@ -685,7 +685,7 @@ export default function AccountantScreen() {
       >
         <form onSubmit={handleSaveExpenseEdit}>
           <div className="form-group">
-            <label className="form-label">Expense Category *</label>
+            <label className="form-label">1. Category (వర్గం) *</label>
             <select
               className="form-select"
               value={expenseForm.expense_type}
@@ -700,7 +700,18 @@ export default function AccountantScreen() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Amount (₹) *</label>
+            <label className="form-label">2. Description (వివరణ / దేని కోసం) *</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="ఖర్చు వివరణ..."
+              value={expenseForm.description}
+              onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">3. Amount (మొత్తం ₹) *</label>
             <input
               type="number"
               min="0.01"
@@ -712,22 +723,12 @@ export default function AccountantScreen() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Date *</label>
+            <label className="form-label">Date (తేదీ) *</label>
             <input
               type="date"
               className="form-input"
               value={expenseForm.expense_date}
               onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Description</label>
-            <input
-              type="text"
-              className="form-input"
-              value={expenseForm.description}
-              onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
             />
           </div>
 

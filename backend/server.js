@@ -1,6 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+dotenv.config({ path: path.join(rootDir, '.env') });
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 
@@ -23,16 +30,16 @@ process.on('uncaughtException', (err) => {
 });
 
 import { initDatabase } from './db/database.js';
+import * as mysql from './db/mysql.js';
 import apiRoutes from './routes/api.js';
-import * as cloudBackupService from './services/cloudBackupService.js';
-import * as mysqlService from './services/mysqlService.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Initialize local database schema & authentication migrations
+initDatabase();
+
 const distPath = path.resolve(__dirname, '../dist');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT && !isNaN(Number(process.env.PORT)) ? Number(process.env.PORT) : (process.env.PORT || 3000);
 
 // ====================================================================
 // COMPREHENSIVE SECURITY & PERFORMANCE MIDDLEWARE
@@ -81,7 +88,7 @@ const rateLimitStore = new Map();
 function rateLimiter({ windowMs, maxRequests, message }) {
   return (req, res, next) => {
     const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || req.socket?.remoteAddress || '127.0.0.1';
-    const route = req.baseUrl || req.path;
+    const route = (req.originalUrl || req.baseUrl || req.path || '/api').split('?')[0];
     const key = `${route}_${ip}`;
     const now = Date.now();
 
@@ -190,7 +197,18 @@ try {
 // 6. Routes with API Rate Limiting
 app.use('/api', globalApiLimiter, apiRoutes);
 
-// Root informational endpoint for Render / API consumers
+// Dedicated JSON 404 handler for ALL unhandled /api requests (GET, POST, PUT, DELETE, etc.)
+// Prevents Express from ever falling back to an HTML error page for API consumers
+app.all('/api/*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `API endpoint '${req.method} ${req.originalUrl}' not found.`,
+    path: req.originalUrl,
+    method: req.method,
+  });
+});
+
+// Root informational endpoint for API consumers & uptime monitors
 app.get('/', (req, res, next) => {
   const indexPath = path.join(distPath, 'index.html');
   res.sendFile(indexPath, (err) => {
@@ -222,52 +240,88 @@ app.use(
 
 // SPA Fallback for client-side routing
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
-    if (err) next();
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({
+      success: false,
+      error: `API endpoint '${req.method} ${req.originalUrl}' not found.`,
+      path: req.originalUrl,
+      method: req.method,
+    });
+  }
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      res.status(200).json({
+        status: 'online',
+        service: 'Saree Business Management & Accountant Backend API',
+        health: '/api/health',
+        notice: 'Frontend dist/index.html not found. Please run "npm run build".',
+      });
+    }
   });
 });
 
-// 8. Production Error Handler (Zero stack trace exposure)
+// 8. Production Error Handler (Zero stack trace exposure, always JSON for /api)
 app.use((err, req, res, next) => {
-  res.status(500).json({
+  const isApi = req.path.startsWith('/api');
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
     success: false,
-    error: 'Internal Server Error',
-    message: 'An unexpected internal error occurred. Please try again.',
+    error: isApi ? (err.message || 'Internal Server Error') : 'Internal Server Error',
+    message: isApi
+      ? 'An error occurred while processing the API request.'
+      : 'An unexpected internal error occurred. Please try again.',
   });
 });
 
-app.listen(PORT, async () => {
+let serverInstance = null;
+
+export const startServer = async () => {
+  if (serverInstance) return serverInstance;
+
+  serverInstance = app.listen(PORT, async () => {
     console.log(`[Server] Backend service running on http://localhost:${PORT}`);
 
-    // Verify Hostinger MySQL Database Connection
-    const isMysql = mysqlService.isMysqlConfigured();
-    if (isMysql) {
-      console.log('[Database] Checking Hostinger MySQL connection...');
+    // Check Hostinger MySQL Configuration
+    const isMySQL = mysql.isMySQLConfigured();
+    if (isMySQL) {
+      console.log('[Hostinger MySQL] Initializing schema and checking database connection...');
       try {
-        const mysqlConn = await mysqlService.testMysqlConnection();
-        if (mysqlConn.connected) {
+        await mysql.initMySQLSchema();
+        const mysqlStatus = await mysql.testMySQLConnection();
+        if (mysqlStatus.connected) {
           console.log('================================================================');
-          console.log(`[Hostinger MySQL] ✓ Connected to Hostinger MySQL: ${mysqlConn.database} on ${mysqlConn.host}`);
-          console.log('[Hostinger MySQL] Mode: hostinger_mysql (Authoritative Primary Engine)');
+          console.log(`[Hostinger MySQL] ✓ Connected to Hostinger MySQL Database: ${mysqlStatus.database} on ${mysqlStatus.host}:${mysqlStatus.port}`);
+          console.log(`[Hostinger MySQL] Mode: hostinger_mysql_authoritative (100% Authoritative Source of Truth)`);
+          console.log(`[Hostinger MySQL] Tables Verified: ${mysqlStatus.tables?.length || 0}`);
           console.log('================================================================');
-
-          // Ensure MySQL schema tables are ready
-          await mysqlService.initMysqlSchema();
         } else {
-          console.error('[Hostinger MySQL] ❌ MySQL credentials configured but connection check failed:', mysqlConn.message);
-          console.warn('[Hostinger MySQL] WARNING: Operating with local SQLite fallback (data/app.db).');
+          console.error('[Hostinger MySQL] ❌ MySQL connection failed:', mysqlStatus.error);
+          console.warn('[Hostinger MySQL] Falling back to local SQLite cache (data/app.db).');
         }
       } catch (err) {
-        console.error('[Hostinger MySQL] Exception during MySQL connection check:', err.message);
+        console.error('[Hostinger MySQL] Schema initialization error:', err.message);
       }
     } else {
+      const cfg = mysql.getMySQLConfig();
       console.log('================================================================');
       console.log(`[Hostinger Server] ✓ App active on Hostinger (Port: ${PORT})`);
-      console.log('[Hostinger Database] ✓ Standalone SQLite database operational at data/app.db (WAL Mode)');
-      console.log('[Hostinger Database] Mode: hostinger_sqlite (Configure DB_HOST, DB_NAME to enable MySQL)');
+      if (cfg.user && cfg.user.toLowerCase() === 'root') {
+        console.warn("[Hostinger MySQL] Notice: 'root' user is not permitted on Hostinger MySQL. Please create a user in hPanel.");
+      } else {
+        console.log('[Hostinger MySQL] Notice: MySQL credentials (DB_USER, DB_PASSWORD, DB_NAME) not yet configured.');
+      }
+      console.log('[Hostinger Database] ✓ Resilient local SQLite database operational at data/app.db (WAL Mode)');
+      console.log('[Hostinger Database] Mode: hostinger_authoritative');
       console.log('================================================================');
     }
   });
+
+  return serverInstance;
+};
+
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;

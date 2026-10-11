@@ -126,21 +126,14 @@ function recordLoginSuccess(key) {
  * Sign up a new business owner
  */
 export function signupUser({ username, password, confirm_password, confirmPassword }) {
-  if (!username || typeof username !== 'string') {
+  if (!username || typeof username !== 'string' || !username.trim()) {
     throw new Error('Username is required.');
   }
 
   const cleanUsername = username.trim();
-  if (cleanUsername.length < 3 || cleanUsername.length > 50) {
-    throw new Error('Username must be between 3 and 50 characters.');
-  }
 
-  if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
-    throw new Error('Username can only contain letters, numbers, and underscores.');
-  }
-
-  const confirm = confirm_password || confirmPassword;
-  if (!password || typeof password !== 'string') {
+  const confirm = confirm_password !== undefined ? confirm_password : confirmPassword;
+  if (!password || typeof password !== 'string' || password.length === 0) {
     throw new Error('Password is required.');
   }
 
@@ -148,7 +141,7 @@ export function signupUser({ username, password, confirm_password, confirmPasswo
     throw new Error('Password must be at least 6 characters long.');
   }
 
-  if (password !== confirm) {
+  if (confirm !== undefined && password !== confirm) {
     throw new Error('Password and confirmation password do not match.');
   }
 
@@ -158,7 +151,9 @@ export function signupUser({ username, password, confirm_password, confirmPasswo
     .get(cleanUsername);
 
   if (existing) {
-    throw new Error(`Username "${cleanUsername}" is already taken. Please choose another.`);
+    const err = new Error(`Username "${cleanUsername}" is already taken. Please choose another.`);
+    err.statusCode = 409;
+    throw err;
   }
 
   const passwordHash = hashPassword(password);
@@ -288,7 +283,7 @@ export function getUserFromToken(token) {
 export function getBusinessProfile(userId) {
   const profile = db
     .prepare(`
-      SELECT id, user_id, business_name, business_address, business_nickname, created_at, updated_at
+      SELECT id, user_id, business_name, business_address, business_nickname, shop_code, created_at, updated_at
       FROM business_profiles
       WHERE user_id = ?
     `)
@@ -302,6 +297,7 @@ export function getBusinessProfile(userId) {
     business_name: profile.business_name,
     business_address: profile.business_address,
     business_nickname: profile.business_nickname,
+    shop_code: profile.shop_code || '',
     created_at: profile.created_at,
     updated_at: profile.updated_at,
   };
@@ -322,7 +318,7 @@ export function saveBusinessProfile(arg1, arg2) {
     data = arg2 || {};
   }
 
-  const { business_name, business_address, business_nickname } = data;
+  const { business_name, business_address, business_nickname, shop_code } = data;
 
   if (!business_name || typeof business_name !== 'string' || business_name.trim().length < 2) {
     throw new Error('Business Name is required and must be at least 2 characters.');
@@ -339,21 +335,23 @@ export function saveBusinessProfile(arg1, arg2) {
   const cleanName = business_name.trim();
   const cleanAddress = business_address.trim();
   const cleanNickname = business_nickname.trim();
+  const cleanShopCode = (shop_code !== undefined ? String(shop_code) : '').trim();
   const now = new Date().toISOString();
 
   const existing = getBusinessProfile(uid);
 
   if (existing) {
+    const finalShopCode = cleanShopCode !== '' ? cleanShopCode : (existing.shop_code || '');
     db.prepare(`
       UPDATE business_profiles
-      SET business_name = ?, business_address = ?, business_nickname = ?, updated_at = ?
+      SET business_name = ?, business_address = ?, business_nickname = ?, shop_code = ?, updated_at = ?
       WHERE user_id = ?
-    `).run(cleanName, cleanAddress, cleanNickname, now, uid);
+    `).run(cleanName, cleanAddress, cleanNickname, finalShopCode, now, uid);
   } else {
     db.prepare(`
-      INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(uid, cleanName, cleanAddress, cleanNickname, now, now);
+      INSERT INTO business_profiles (user_id, business_name, business_address, business_nickname, shop_code, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(uid, cleanName, cleanAddress, cleanNickname, cleanShopCode, now, now);
   }
 
   return getBusinessProfile(uid);

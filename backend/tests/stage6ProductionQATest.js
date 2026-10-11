@@ -165,7 +165,7 @@ async function runStage6Tests() {
     const [todayMetricsRes, monthlyMetricsRes, masterDashRes] = await Promise.all([
       fetch(`${BASE_URL}/calculations/today`),
       fetch(`${BASE_URL}/calculations/monthly?month=2026-09`),
-      fetch(`${BASE_URL}/calculations/dashboard`),
+      fetch(`${BASE_URL}/calculations/dashboard?month=2026-09`),
     ]);
 
     const todayM = (await todayMetricsRes.json()).data;

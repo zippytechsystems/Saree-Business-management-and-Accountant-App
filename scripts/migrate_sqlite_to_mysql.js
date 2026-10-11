@@ -1,13 +1,16 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import db from '../backend/db/database.js';
-import mysqlClient from '../backend/db/mysqlClient.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+dotenv.config({ path: path.join(rootDir, '.env') });
+dotenv.config();
+
+import db from '../backend/db/database.js';
+import mysqlClient from '../backend/db/mysqlClient.js';
 
 async function runMigration() {
   console.log('================================================================');

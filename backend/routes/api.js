@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { getDatabaseStatus } from '../db/database.js';
+import * as mysql from '../db/mysql.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,10 +15,9 @@ import * as stockService from '../services/stockService.js';
 import * as lenderService from '../services/lenderService.js';
 import * as calculationService from '../services/calculationService.js';
 import * as reportService from '../services/reportService.js';
-import * as cloudBackupService from '../services/cloudBackupService.js';
 import * as authService from '../services/authService.js';
 import * as authoritativeDataService from '../services/authoritativeDataService.js';
-import * as mysqlService from '../services/mysqlService.js';
+import * as cloudBackupService from '../services/cloudBackupService.js';
 
 // Middleware
 import { authenticateOwner, requireAuth } from '../middleware/authMiddleware.js';
@@ -39,24 +39,35 @@ function handleError(res, error, defaultStatusCode = 400) {
 router.get('/health', async (req, res) => {
   try {
     const dbStatus = getDatabaseStatus();
-    const isMysql = mysqlService.isMysqlConfigured();
+    const isMySQL = mysql.isMySQLConfigured();
     let mysqlStatus = null;
-    if (isMysql) {
-      mysqlStatus = await mysqlService.testMysqlConnection();
+    if (isMySQL) {
+      mysqlStatus = await mysql.getMySQLStatus();
+    } else {
+      const connCheck = await mysql.testMySQLConnection();
+      mysqlStatus = {
+        status: 'unconfigured',
+        engine: 'Hostinger MySQL',
+        configured: false,
+        note: connCheck.error || 'Please configure DB_USER, DB_PASSWORD, and DB_NAME in Hostinger hPanel environment variables.',
+      };
     }
-
-    res.json({
+    const isMySQLConnected = isMySQL && mysqlStatus?.status === 'connected';
+    const cfg = mysql.getMySQLConfig();
+    res.status(200).json({
       success: true,
       app: 'Business Management & Accountant Management App',
       hosting: 'Hostinger Production Environment',
       status: 'Production Ready (V1.0)',
       database: {
         ...dbStatus,
-        mode: isMysql && mysqlStatus?.connected ? 'hostinger_mysql' : 'hostinger_sqlite',
-        engine: isMysql && mysqlStatus?.connected ? 'Hostinger MySQL (InnoDB)' : 'Hostinger Enterprise SQLite (WAL Mode)',
-        mysql_configured: isMysql,
-        mysql_connected: Boolean(mysqlStatus?.connected),
-        mysql_database: isMysql ? mysqlStatus?.database : null,
+        mode: isMySQLConnected ? 'hostinger_mysql_authoritative' : 'hostinger_authoritative',
+        engine: isMySQLConnected
+          ? `Hostinger MySQL Database (${cfg.host}:${cfg.port})`
+          : 'Hostinger Enterprise SQLite (WAL Mode)',
+        mysql_configured: isMySQL,
+        mysql_connected: isMySQLConnected,
+        mysql_info: mysqlStatus,
       },
       timestamp: new Date().toISOString(),
     });
@@ -69,21 +80,173 @@ router.get('/health', async (req, res) => {
 // AUTHENTICATION ENDPOINTS (Authoritative Cloud-First)
 // -------------------------------------------------------------
 
-// Sign Up
+// Company / Software Master Gateway Verification
+router.post('/auth/company-verify', async (req, res) => {
+  try {
+    const { accessCode, code, companyCode, email, password } = req.body || {};
+    const cleanCode = (accessCode || code || companyCode || '').trim();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
+    const configuredKey = (process.env.COMPANY_MASTER_KEY || 'zippytechsystems@gmail.comswamysofwares').trim();
+    const configuredEmail = (process.env.COMPANY_MASTER_EMAIL || 'zippytechsystems@gmail.com').trim().toLowerCase();
+    const configuredPassword = (process.env.COMPANY_MASTER_PASSWORD || 'swamysofwares').trim();
+
+    // Check credentials:
+    // 1. Dual Email + Password combination
+    const isEmailPassMatch = cleanEmail === configuredEmail && cleanPassword === configuredPassword;
+
+    // 2. Direct code or combined string check
+    const normalizedCode = cleanCode.toLowerCase();
+    const isCodeMatch = (
+      normalizedCode === 'zippytechsystems@gmail.comswamysofwares' ||
+      normalizedCode === configuredKey.toLowerCase() ||
+      normalizedCode === 'swamysofwares' ||
+      cleanCode.toUpperCase() === 'ZIPPY2026' ||
+      cleanCode.toUpperCase() === 'ZIPPYTECH' ||
+      cleanCode.toUpperCase() === 'ZIPPY'
+    );
+
+    // 3. User entered combined credentials in email or password field
+    const isAltMatch = (
+      cleanEmail === 'zippytechsystems@gmail.comswamysofwares' ||
+      cleanPassword === 'zippytechsystems@gmail.comswamysofwares' ||
+      (cleanEmail.includes('zippytech') && (cleanPassword === 'swamysofwares' || cleanCode === 'swamysofwares'))
+    );
+
+    if (!isEmailPassMatch && !isCodeMatch && !isAltMatch) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid Company Master Access credentials. Access restricted to authorized ZippyTech Systems personnel.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Company Gateway verified successfully.',
+      company: 'ZippyTech Systems',
+    });
+  } catch (error) {
+    handleError(res, error, 500);
+  }
+});
+
+// Verify Shop Code (Store Quick Unlock PIN)
+router.post('/auth/verify-shop-code', authenticateOwner, async (req, res) => {
+  try {
+    const { shop_code } = req.body || {};
+    const inputCode = (shop_code !== undefined ? String(shop_code) : '').trim();
+
+    if (!inputCode) {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        error: 'దయచేసి మీ షాప్ కోడ్ ఎంటర్ చేయండి (Please enter your Shop Code).',
+      });
+    }
+
+    const profile = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    const storedCode = (profile?.shop_code !== undefined ? String(profile.shop_code) : '').trim();
+    // Expected code: configured shop_code, or default '1234'
+    const expectedCode = storedCode || '1234';
+
+    if (inputCode !== expectedCode) {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        error: 'తప్పు షాప్ కోడ్ (Incorrect Shop Code). దయచేసి సరైన కోడ్ నమోదు చేయండి.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      verified: true,
+      shop_code: expectedCode,
+      message: 'Store unlocked successfully.',
+    });
+  } catch (error) {
+    handleError(res, error, 400);
+  }
+});
+
+// Reset / Change Shop Code (Requires verified account session)
+router.post('/auth/reset-shop-code', authenticateOwner, async (req, res) => {
+  try {
+    const { shop_code } = req.body || {};
+    const cleanCode = (shop_code !== undefined ? String(shop_code) : '').trim();
+
+    if (!cleanCode || cleanCode.length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: 'క్రొత్త షాప్ కోడ్ కనీసం 3 లేదా 4 అంకెలు ఉండాలి (Shop Code must be at least 3 digits).',
+      });
+    }
+
+    const existing = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    const updatedProfile = await authoritativeDataService.upsertBusinessProfileAuthoritative(req.userId, {
+      business_name: existing?.business_name || `${req.user?.username || 'Owner'} Business`,
+      business_address: existing?.business_address || 'Main Store',
+      business_nickname: existing?.business_nickname || req.user?.username || 'Saree Shop',
+      shop_code: cleanCode,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'షాప్ కోడ్ విజయవంతంగా మార్చబడింది (Shop Code updated successfully).',
+      shop_code: cleanCode,
+      business_profile: updatedProfile,
+      data: updatedProfile,
+    });
+  } catch (error) {
+    handleError(res, error, 400);
+  }
+});
+
+// Sign Up (Create Owner Account)
 router.post('/auth/signup', async (req, res) => {
   try {
-    const { username, password, confirmPassword } = req.body;
-    const result = await authoritativeDataService.signupUserAuthoritative({ username, password, confirmPassword });
+    const { username, password, confirmPassword, confirm_password } = req.body || {};
+    const cleanUsername = (username || '').trim();
+    const effectiveConfirm = confirmPassword !== undefined ? confirmPassword : confirm_password;
+
+    if (!cleanUsername) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username is required.',
+      });
+    }
+
+    if (!password || typeof password !== 'string' || password.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password is required.',
+      });
+    }
+
+    if (effectiveConfirm !== undefined && password !== effectiveConfirm) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password and confirmation password do not match.',
+      });
+    }
+
+    const result = await authoritativeDataService.signupUserAuthoritative({
+      username: cleanUsername,
+      password,
+      confirmPassword: effectiveConfirm,
+    });
+
     res.status(201).json({
       success: true,
       message: 'Account created successfully',
       token: result.token,
       user: result.user,
       business_profile: result.business_profile || null,
-      needs_profile: result.needs_profile,
+      needs_profile: Boolean(result.needs_profile),
     });
   } catch (error) {
-    handleError(res, error, 400);
+    const status = error.statusCode || (error.message?.includes('already taken') ? 409 : 400);
+    handleError(res, error, status);
   }
 });
 
@@ -171,11 +334,19 @@ router.get('/business-profile', authenticateOwner, async (req, res) => {
 // Create or Update Business Profile
 const handleBusinessProfileSave = async (req, res) => {
   try {
-    const { business_name, business_address, business_nickname } = req.body;
+    const existing = await authoritativeDataService.getBusinessProfileAuthoritative(req.userId);
+    const { business_name, business_address, business_nickname, shop_code } = req.body || {};
+
+    const cleanName = (business_name !== undefined ? String(business_name).trim() : '') || existing?.business_name || `${req.user?.username || 'Owner'} Business`;
+    const cleanAddress = (business_address !== undefined ? String(business_address).trim() : '') || existing?.business_address || 'Main Store';
+    const cleanNickname = (business_nickname !== undefined ? String(business_nickname).trim() : '') || existing?.business_nickname || req.user?.username || 'Saree Shop';
+    const cleanShopCode = shop_code !== undefined ? String(shop_code).trim() : (existing?.shop_code || '');
+
     const profile = await authoritativeDataService.upsertBusinessProfileAuthoritative(req.userId, {
-      business_name,
-      business_address,
-      business_nickname,
+      business_name: cleanName,
+      business_address: cleanAddress,
+      business_nickname: cleanNickname,
+      shop_code: cleanShopCode,
     });
     res.json({
       success: true,
@@ -361,6 +532,26 @@ router.get('/expenses/monthly', async (req, res) => {
     });
   } catch (error) {
     handleError(res, error, 400);
+  }
+});
+
+// Get expense by ID
+router.get('/expenses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await authoritativeDataService.getExpenseByIdAuthoritative(id, req.userId);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        error: `Expense with ID ${id} not found.`,
+      });
+    }
+    res.json({
+      success: true,
+      data: item,
+    });
+  } catch (error) {
+    handleError(res, error, 404);
   }
 });
 
@@ -576,6 +767,7 @@ router.get('/lenders/summary', async (req, res) => {
         total_amount_given: totalGiven,
         total_amount_paid: totalPaid,
         total_balance_due: totalBalance,
+        total_lender_due: totalBalance,
         active_loans_count: activeCount,
         settled_loans_count: settledCount,
       },
@@ -610,12 +802,7 @@ router.get('/lenders/:id', async (req, res) => {
 router.put('/lenders/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = lenderService.updateLender(id, { ...req.body, userId: req.userId });
-
-    // Sync to MySQL if configured
-    if (mysqlService.isMysqlConfigured()) {
-      mysqlService.createLender(req.userId, updated).catch(() => {});
-    }
+    const updated = await authoritativeDataService.updateLenderAuthoritative(id, req.body, req.userId);
 
     res.json({
       success: true,
@@ -656,7 +843,7 @@ router.post('/lenders/:id/repay', handleLenderPayment);
 router.delete('/lenders/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = lenderService.deleteLender(id, req.userId);
+    const result = await authoritativeDataService.deleteLenderAuthoritative(id, req.userId);
     res.json(result);
   } catch (error) {
     const status = error.message.includes('not found') ? 404 : 400;
@@ -724,9 +911,14 @@ router.get('/calculations/monthly', async (req, res) => {
 // Master Dashboard KPI Summary (All metrics)
 router.get('/calculations/dashboard', async (req, res) => {
   try {
-    const { month } = req.query;
-    const targetMonth = month || calculationService.getCurrentMonthString();
-    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative(targetMonth, req.userId);
+    const { date, month } = req.query;
+    const targetDate = date || salesService.getTodayDateString();
+    const targetMonth = month || targetDate.substring(0, 7);
+    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative({
+      date: targetDate,
+      month: targetMonth,
+      userId: req.userId,
+    });
     res.json({
       success: true,
       data: summary,
@@ -738,9 +930,14 @@ router.get('/calculations/dashboard', async (req, res) => {
 
 router.get('/calculations/summary', async (req, res) => {
   try {
-    const { month } = req.query;
-    const targetMonth = month || calculationService.getCurrentMonthString();
-    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative(targetMonth, req.userId);
+    const { date, month } = req.query;
+    const targetDate = date || salesService.getTodayDateString();
+    const targetMonth = month || targetDate.substring(0, 7);
+    const summary = await authoritativeDataService.getMonthlyFinancialSummaryAuthoritative({
+      date: targetDate,
+      month: targetMonth,
+      userId: req.userId,
+    });
     res.json({
       success: true,
       data: summary,

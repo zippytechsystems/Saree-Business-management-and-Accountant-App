@@ -2,7 +2,7 @@ import React, { useState, useEffect, memo } from 'react';
 import { Store, Calendar, Lock, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const Header = memo(function Header({ businessProfile, user, onLogout }) {
+const Header = memo(function Header({ businessProfile, user, onLogout, onQuickLock }) {
   const { isDark, toggleTheme } = useTheme();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -60,12 +60,12 @@ const Header = memo(function Header({ businessProfile, user, onLogout }) {
           {isDark ? <Sun size={17} /> : <Moon size={17} />}
         </button>
 
-        {onLogout && (
+        {(onQuickLock || onLogout) && (
           <button
             type="button"
-            onClick={onLogout}
+            onClick={onQuickLock || onLogout}
             className="btn-lock-header"
-            title="Lock & Logout (లాగౌట్ - సీక్రెట్ మోడ్)"
+            title="Quick Lock (షాప్ కోడ్ లాక్)"
             aria-label="Lock App"
           >
             <Lock size={13} />

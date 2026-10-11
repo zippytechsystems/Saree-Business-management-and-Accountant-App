@@ -79,7 +79,9 @@ export function updateExpense(id, { expense_date, expense_type, amount, descript
   const uid = Number(userId || secondArg || 1);
   const existing = getExpenseById(id, uid);
   if (!existing) {
-    throw new Error(`Expense with ID ${id} not found.`);
+    const err = new Error(`Expense with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   validateExpenseInput({ expense_date, expense_type, amount });
@@ -110,7 +112,9 @@ export function deleteExpense(id, userId = 1) {
   const uid = Number(userId || 1);
   const existing = getExpenseById(id, uid);
   if (!existing) {
-    throw new Error(`Expense with ID ${id} not found.`);
+    const err = new Error(`Expense with ID ${id} not found.`);
+    err.statusCode = 404;
+    throw err;
   }
 
   db.prepare('DELETE FROM expenses WHERE id = ? AND user_id = ?').run(id, uid);
@@ -215,3 +219,5 @@ export function getMonthlyTotalExpenses(yearMonth, userId = 1) {
     breakdown: categoryBreakdown,
   };
 }
+
+export const getMonthlyExpensesByCategory = getMonthlyTotalExpenses;

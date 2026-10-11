@@ -64,7 +64,7 @@ async function runAuthTests() {
     }),
   });
   const dupData = await dupRes.json();
-  assert(dupRes.status === 400, '2.1 Duplicate username rejected with HTTP 400');
+  assert([400, 409].includes(dupRes.status), '2.1 Duplicate username rejected with HTTP 400 or 409');
   assert(dupData.success === false, '2.2 Response success is false');
   assert(dupData.error.toLowerCase().includes('already taken'), '2.3 Error message identifies duplicate username');
 

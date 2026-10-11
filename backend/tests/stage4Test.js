@@ -1,5 +1,4 @@
-// Stage 4 Accountant & Lender Management Automated Verification Script
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000/api';
 
 let passed = 0;
 let failed = 0;

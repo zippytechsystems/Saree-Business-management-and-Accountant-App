@@ -9,16 +9,13 @@ RedirectMatch 404 ^/(data|backend|\.env|ecosystem\.config\.cjs|package\.json)(/|
   Require all denied
 </FilesMatch>
 
-# 2. SPA CLIENT ROUTING
+# 2. Allow direct access to existing physical static files (e.g. dist/assets)
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Allow direct access to existing physical static files (e.g., in dist/assets)
+  # Allow direct access to existing static files and directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
-
-  # Route all other frontend requests to the index.html SPA
-  RewriteRule ^ dist/index.html [L]
 </IfModule>

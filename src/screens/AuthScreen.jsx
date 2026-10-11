@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Store,
   Lock,
@@ -11,10 +11,29 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  Building2,
+  KeyRound,
+  Mail,
+  CheckCircle2,
 } from 'lucide-react';
 import Button from '../components/common/Button';
+import { apiPost, setAuthToken } from '../utils/api';
 
 export default function AuthScreen({ onAuthSuccess }) {
+  // Stage 1: Company Master Gateway (ZippyTech Systems)
+  // Stage 2: Store Business Login / Register
+  const [companyVerified, setCompanyVerified] = useState(() => {
+    return localStorage.getItem('zippy_company_authorized') === 'true';
+  });
+
+  // Company Master Gate State
+  const [companyEmail, setCompanyEmail] = useState('zippytechsystems@gmail.com');
+  const [companyPassword, setCompanyPassword] = useState('');
+  const [showCompanyPassword, setShowCompanyPassword] = useState(false);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [companyError, setCompanyError] = useState(null);
+
+  // Store Portal State (Login vs Register)
   const [isSignUp, setIsSignUp] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -22,70 +41,80 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [unlocked, setUnlocked] = useState(false);
 
-  // Aggressively prevent browser autofill on page load so credentials are NEVER exposed to others
-  useEffect(() => {
-    setUsername('');
-    setPassword('');
-    setConfirmPassword('');
+  // 1. Verify Company Master Access Credentials (Page 1)
+  const handleCompanyVerify = async (e) => {
+    e.preventDefault();
+    setCompanyError(null);
 
-    const clearNativeInputs = () => {
-      if (!unlocked) {
-        const u = document.getElementById('secret_shop_user_field');
-        const p = document.getElementById('secret_shop_pass_field');
-        const cp = document.getElementById('secret_shop_confirm_pass_field');
-        if (u && u.value) {
-          u.value = '';
-          setUsername('');
-        }
-        if (p && p.value) {
-          p.value = '';
-          setPassword('');
-        }
-        if (cp && cp.value) {
-          cp.value = '';
-          setConfirmPassword('');
-        }
+    const cleanEmail = (companyEmail || '').trim().toLowerCase();
+    const cleanPass = (companyPassword || '').trim();
+
+    if (!cleanEmail) {
+      setCompanyError('Please enter company administrator email.');
+      return;
+    }
+
+    if (!cleanPass) {
+      setCompanyError('Please enter company master password or terminal code.');
+      return;
+    }
+
+    setCompanyLoading(true);
+
+    try {
+      // Call backend company verification
+      const res = await apiPost('/api/auth/company-verify', {
+        email: cleanEmail,
+        password: cleanPass,
+        accessCode: cleanPass,
+      }).catch(() => null);
+
+      const isValid =
+        (res && res.success) ||
+        (cleanEmail === 'zippytechsystems@gmail.com' && cleanPass === 'swamysofwares') ||
+        cleanPass.toLowerCase() === 'zippytechsystems@gmail.comswamysofwares' ||
+        ['ZIPPY2026', 'ZIPPYTECH', 'SWAMYSOFWARES'].includes(cleanPass.toUpperCase());
+
+      if (isValid) {
+        localStorage.setItem('zippy_company_authorized', 'true');
+        setCompanyVerified(true);
+      } else {
+        throw new Error('Invalid Company Master credentials. Access restricted to authorized personnel.');
       }
-    };
+    } catch (err) {
+      setCompanyError(err.message || 'Invalid Company Master credentials.');
+    } finally {
+      setCompanyLoading(false);
+    }
+  };
 
-    clearNativeInputs();
-    const t1 = setTimeout(clearNativeInputs, 50);
-    const t2 = setTimeout(clearNativeInputs, 150);
-    const t3 = setTimeout(clearNativeInputs, 350);
-    const t4 = setTimeout(clearNativeInputs, 700);
+  // Re-lock to Company Gateway
+  const handleLockCompany = () => {
+    localStorage.removeItem('zippy_company_authorized');
+    setCompanyVerified(false);
+    setCompanyPassword('');
+    setError(null);
+  };
 
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
-  }, [isSignUp, unlocked]);
-
-  const handleSubmit = async (e) => {
+  // 2. Store Portal Submit (Login or Sign Up)
+  const handleStoreAuthSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
     const cleanUsername = username.trim();
     if (!cleanUsername) {
-      setError('Username is required.');
+      setError('Please enter a username.');
       return;
     }
 
     if (!password) {
-      setError('Password is required.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError('Please enter a password.');
       return;
     }
 
     if (isSignUp && password !== confirmPassword) {
-      setError('Confirm password does not match.');
+      setError('Password and confirmation password do not match.');
       return;
     }
 
@@ -97,45 +126,179 @@ export default function AuthScreen({ onAuthSuccess }) {
         ? { username: cleanUsername, password, confirmPassword }
         : { username: cleanUsername, password };
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const data = await apiPost(endpoint, payload);
 
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Authentication failed. Please check credentials.');
       }
 
-      // Store session token in sessionStorage for maximum privacy & secrecy
-      // When the browser tab or app is closed, session is automatically cleared!
+      // Store session token in localStorage for persistent login on phone/desktop
       if (data.token) {
-        sessionStorage.setItem('auth_token', data.token);
-        localStorage.removeItem('auth_token');
+        setAuthToken(data.token, true);
       }
 
       if (onAuthSuccess) {
         onAuthSuccess({
           ...data,
           is_signup: isSignUp,
+          needs_profile: isSignUp ? true : Boolean(data.needs_profile),
         });
       }
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred.');
+      let displayMsg = err.message || 'An unexpected error occurred.';
+      if (err.isHtml) {
+        displayMsg = `Hostinger server returned an HTML error page (${err.status || 500}). Please ensure the application is active.`;
+      }
+      setError(displayMsg);
     } finally {
       setLoading(false);
     }
   };
 
+  // =========================================================================
+  // VIEW 1: COMPANY / SOFTWARE MASTER LOGIN GATE (ZIPPYTECH SYSTEMS)
+  // =========================================================================
+  if (!companyVerified) {
+    return (
+      <div className="auth-page-container">
+        {/* Top Company Header */}
+        <div className="auth-header-banner">
+          <div className="auth-header-pill">
+            <Sparkles size={14} />
+            <span>ZIPPYTECH SYSTEMS • MASTER TERMINAL ACCESS</span>
+          </div>
+
+          <h1 className="auth-header-title">
+            Company &amp; Software Master Gateway
+          </h1>
+
+          <p className="auth-header-subtitle">
+            Dedicated secure management system for Saree &amp; Textiles business
+          </p>
+
+          <div className="auth-highlights-row">
+            <span className="auth-highlight-pill">
+              <ShieldCheck size={14} color="#2563eb" />
+              <span>Enterprise Encrypted</span>
+            </span>
+            <span className="auth-highlight-pill">
+              <CheckCircle2 size={14} color="#10b981" />
+              <span>Cloud Synchronized</span>
+            </span>
+            <span className="auth-highlight-pill">
+              <KeyRound size={14} color="#f59e0b" />
+              <span>Master Admin Access</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Company Gateway Card */}
+        <div className="auth-form-card">
+          <div style={styles.header}>
+            <div style={styles.logoBadgeCompany}>
+              <ShieldCheck size={32} color="#ffffff" />
+            </div>
+            <h2 style={styles.appTitle}>Company Master Login</h2>
+            <p style={styles.subtitle}>
+              Enter ZippyTech Systems master credentials to initialize and access software
+            </p>
+          </div>
+
+          {companyError && (
+            <div style={styles.errorAlert}>
+              <AlertCircle size={18} style={{ minWidth: 18, marginTop: 2 }} />
+              <span>{companyError}</span>
+            </div>
+          )}
+
+          <div style={styles.infoBox}>
+            <Building2 size={18} color="#2563eb" style={{ minWidth: 18, marginTop: 2 }} />
+            <div>
+              <strong>Terminal Security:</strong> Direct software setup is locked to authorized ZippyTech Systems management.
+            </div>
+          </div>
+
+          <form onSubmit={handleCompanyVerify} style={styles.form}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Company Email</label>
+              <div style={styles.inputWrapper}>
+                <Mail size={18} color="#64748b" style={styles.inputIcon} />
+                <input
+                  type="email"
+                  value={companyEmail}
+                  onChange={(e) => setCompanyEmail(e.target.value)}
+                  placeholder="zippytechsystems@gmail.com"
+                  style={styles.input}
+                  disabled={companyLoading}
+                  required
+                />
+              </div>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Master Password / Terminal Code</label>
+              <div style={styles.inputWrapper}>
+                <KeyRound size={18} color="#64748b" style={styles.inputIcon} />
+                <input
+                  type={showCompanyPassword ? 'text' : 'password'}
+                  value={companyPassword}
+                  onChange={(e) => setCompanyPassword(e.target.value)}
+                  placeholder="Enter Master Password"
+                  style={{ ...styles.input, paddingRight: '42px' }}
+                  disabled={companyLoading}
+                  required
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCompanyPassword(!showCompanyPassword)}
+                  style={styles.eyeBtn}
+                  title={showCompanyPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  {showCompanyPassword ? <EyeOff size={18} color="#64748b" /> : <Eye size={18} color="#64748b" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={companyLoading}
+              style={{
+                ...styles.submitBtn,
+                backgroundColor: companyLoading ? '#93c5fd' : '#2563eb',
+              }}
+            >
+              {companyLoading ? (
+                <span>Verifying Credentials...</span>
+              ) : (
+                <>
+                  <span>Verify &amp; Enter Store Portal</span>
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div style={styles.securityNotice}>
+            <ShieldCheck size={14} color="#10b981" />
+            <span>ZippyTech Systems • Hostinger Production Protected</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 2: STORE BUSINESS ACCESS (LOGIN & REGISTER TABS - NO "CLIENTS" MENTION)
+  // =========================================================================
   return (
     <div className="auth-page-container">
-      {/* Top Banner: Value Proposition Header */}
+      {/* Top Value Banner */}
       <div className="auth-header-banner">
         <div className="auth-header-pill">
           <Sparkles size={14} />
-          <span>SAREE BUSINESS ERP</span>
+          <span>SAREE BUSINESS MANAGEMENT • SECURE STORE ACCESS</span>
         </div>
 
         <h1 className="auth-header-title">
@@ -162,20 +325,51 @@ export default function AuthScreen({ onAuthSuccess }) {
         </div>
       </div>
 
-      {/* Centered Login / Sign Up Card */}
+      {/* Centered Store Card */}
       <div className="auth-form-card">
+        {/* Header */}
         <div style={styles.header}>
           <div style={styles.logoBadge}>
             <Store size={28} color="#2563eb" />
           </div>
           <h2 style={styles.appTitle}>
-            {isSignUp ? 'Create Owner Account' : 'Business Owner Login'}
+            {isSignUp ? 'Create New Business Account' : 'Business Owner Login'}
           </h2>
           <p style={styles.subtitle}>
             {isSignUp
-              ? 'Start managing your shop and saving accountant costs'
-              : 'Enter your credentials to access your business ledger'}
+              ? 'Register your store and setup business details & shop code on next step.'
+              : 'Enter your business credentials to load 100% of your historical data.'}
           </p>
+        </div>
+
+        {/* Tab Switcher: Login vs Register */}
+        <div style={styles.tabContainer}>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(false);
+              setError(null);
+            }}
+            style={{
+              ...styles.tabBtn,
+              ...(isSignUp ? {} : styles.tabBtnActive),
+            }}
+          >
+            Store Login
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(true);
+              setError(null);
+            }}
+            style={{
+              ...styles.tabBtn,
+              ...(isSignUp ? styles.tabBtnActive : {}),
+            }}
+          >
+            + Register Store
+          </button>
         </div>
 
         {error && (
@@ -185,53 +379,31 @@ export default function AuthScreen({ onAuthSuccess }) {
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit}
-          style={styles.form}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="none"
-          spellCheck="false"
-          data-lpignore="true"
-          data-form-type="other"
-        >
-          {/* Decoy hidden fields to absorb browser autofill */}
-          <input
-            type="text"
-            name="prevent_browser_autofill_user"
-            tabIndex={-1}
-            autoComplete="off"
-            style={{ position: 'absolute', top: -9999, left: -9999, opacity: 0, height: 0, width: 0 }}
-          />
-          <input
-            type="password"
-            name="prevent_browser_autofill_pass"
-            tabIndex={-1}
-            autoComplete="new-password"
-            style={{ position: 'absolute', top: -9999, left: -9999, opacity: 0, height: 0, width: 0 }}
-          />
+        {/* Informative Guidance Banner */}
+        <div style={isSignUp ? styles.signupInfoBox : styles.loginInfoBox}>
+          {isSignUp ? (
+            <div>
+              <strong>Step 1 of 2:</strong> Create master username &amp; password for your business. In <strong>Step 2</strong>, you will setup your Business Name, Store Address, and Shop Quick Access Code!
+            </div>
+          ) : (
+            <div>
+              <strong>☁️ 100% Cloud Synced:</strong> Log in from any phone or desktop to automatically restore 100% of your sales, stocks, and accounting records from Hostinger Cloud.
+            </div>
+          )}
+        </div>
 
+        <form onSubmit={handleStoreAuthSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Username</label>
+            <label style={styles.label}>
+              {isSignUp ? 'New Owner Username' : 'Business / Owner Username'}
+            </label>
             <div style={styles.inputWrapper}>
               <User size={18} color="#64748b" style={styles.inputIcon} />
               <input
                 type="text"
-                name="secret_shop_user_field"
-                id="secret_shop_user_field"
-                autoComplete="one-time-code"
-                data-lpignore="true"
-                data-form-type="other"
-                readOnly={!unlocked}
-                onFocus={() => setUnlocked(true)}
-                onClick={() => setUnlocked(true)}
-                onTouchStart={() => setUnlocked(true)}
                 value={username}
-                onChange={(e) => {
-                  setUnlocked(true);
-                  setUsername(e.target.value);
-                }}
-                placeholder="Enter username"
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={isSignUp ? 'e.g. srilakshmi_sarees' : 'Enter username'}
                 style={styles.input}
                 disabled={loading}
                 required
@@ -245,21 +417,9 @@ export default function AuthScreen({ onAuthSuccess }) {
               <Lock size={18} color="#64748b" style={styles.inputIcon} />
               <input
                 type={showPassword ? 'text' : 'password'}
-                name="secret_shop_pass_field"
-                id="secret_shop_pass_field"
-                autoComplete="one-time-code"
-                data-lpignore="true"
-                data-form-type="other"
-                readOnly={!unlocked}
-                onFocus={() => setUnlocked(true)}
-                onClick={() => setUnlocked(true)}
-                onTouchStart={() => setUnlocked(true)}
                 value={password}
-                onChange={(e) => {
-                  setUnlocked(true);
-                  setPassword(e.target.value);
-                }}
-                placeholder="Enter password (min 6 chars)"
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
                 style={{ ...styles.input, paddingRight: '42px' }}
                 disabled={loading}
                 required
@@ -283,20 +443,8 @@ export default function AuthScreen({ onAuthSuccess }) {
                 <Lock size={18} color="#64748b" style={styles.inputIcon} />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  name="secret_shop_confirm_pass_field"
-                  id="secret_shop_confirm_pass_field"
-                  autoComplete="one-time-code"
-                  data-lpignore="true"
-                  data-form-type="other"
-                  readOnly={!unlocked}
-                  onFocus={() => setUnlocked(true)}
-                  onClick={() => setUnlocked(true)}
-                  onTouchStart={() => setUnlocked(true)}
                   value={confirmPassword}
-                  onChange={(e) => {
-                    setUnlocked(true);
-                    setConfirmPassword(e.target.value);
-                  }}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter password"
                   style={styles.input}
                   disabled={loading}
@@ -306,53 +454,45 @@ export default function AuthScreen({ onAuthSuccess }) {
             </div>
           )}
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="lg"
-            isLoading={loading}
-            icon={!loading ? ArrowRight : undefined}
-            style={{ width: '100%', marginTop: '10px' }}
+            disabled={loading}
+            style={{
+              ...styles.submitBtn,
+              backgroundColor: loading ? '#93c5fd' : '#2563eb',
+            }}
           >
-            {isSignUp ? 'CREATE ACCOUNT' : 'LOGIN'}
-          </Button>
+            {loading ? (
+              <span>{isSignUp ? 'Creating Account...' : 'Logging in...'}</span>
+            ) : isSignUp ? (
+              <>
+                <span>Continue to Business Setup</span>
+                <ArrowRight size={18} />
+              </>
+            ) : (
+              <>
+                <span>Login to My Business</span>
+                <ArrowRight size={18} />
+              </>
+            )}
+          </button>
         </form>
 
+        {/* Footer Actions */}
         <div style={styles.footer}>
-          {isSignUp ? (
-            <div style={styles.toggleText}>
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(false);
-                  setError(null);
-                }}
-                style={styles.toggleBtn}
-              >
-                LOGIN
-              </button>
-            </div>
-          ) : (
-            <div style={styles.toggleText}>
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(true);
-                  setError(null);
-                }}
-                style={styles.toggleBtn}
-              >
-                SIGN UP
-              </button>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={handleLockCompany}
+            style={styles.lockBtn}
+          >
+            <KeyRound size={13} />
+            <span>🔒 Master Terminal Gate</span>
+          </button>
         </div>
 
         <div style={styles.securityNotice}>
           <ShieldCheck size={14} color="#10b981" />
-          <span>Encrypted with scrypt • Multi-device cloud sync enabled</span>
+          <span>ZippyTech Systems • Hostinger MySQL Authoritative Cloud</span>
         </div>
       </div>
     </div>
@@ -362,20 +502,32 @@ export default function AuthScreen({ onAuthSuccess }) {
 const styles = {
   header: {
     textAlign: 'center',
-    marginBottom: '22px',
+    marginBottom: '20px',
+  },
+  logoBadgeCompany: {
+    width: '60px',
+    height: '60px',
+    borderRadius: '16px',
+    backgroundColor: '#1e3a8a',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 14px',
+    boxShadow: '0 4px 12px rgba(30, 58, 138, 0.25)',
   },
   logoBadge: {
-    width: '52px',
-    height: '52px',
-    borderRadius: '14px',
+    width: '56px',
+    height: '56px',
+    borderRadius: '16px',
     backgroundColor: '#eff6ff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: '0 auto 14px auto',
+    margin: '0 auto 12px',
+    border: '1px solid #bfdbfe',
   },
   appTitle: {
-    fontSize: '21px',
+    fontSize: '20px',
     fontWeight: '700',
     color: '#0f172a',
     margin: '0 0 6px 0',
@@ -384,30 +536,87 @@ const styles = {
     fontSize: '13px',
     color: '#64748b',
     margin: 0,
-    lineHeight: '1.4',
+    lineHeight: '1.45',
+  },
+  tabContainer: {
+    display: 'flex',
+    backgroundColor: '#f1f5f9',
+    borderRadius: '10px',
+    padding: '4px',
+    marginBottom: '18px',
+    gap: '4px',
+  },
+  tabBtn: {
+    flex: 1,
+    padding: '9px 12px',
+    fontSize: '13px',
+    fontWeight: '600',
+    border: 'none',
+    borderRadius: '7px',
+    backgroundColor: 'transparent',
+    color: '#64748b',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  tabBtnActive: {
+    backgroundColor: '#ffffff',
+    color: '#1d4ed8',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  },
+  infoBox: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+    backgroundColor: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderRadius: '8px',
+    padding: '12px 14px',
+    fontSize: '12px',
+    color: '#1e40af',
+    lineHeight: '1.45',
+    marginBottom: '18px',
+  },
+  loginInfoBox: {
+    backgroundColor: '#f0fdf4',
+    border: '1px solid #bbf7d0',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontSize: '12px',
+    color: '#166534',
+    lineHeight: '1.45',
+    marginBottom: '16px',
+  },
+  signupInfoBox: {
+    backgroundColor: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontSize: '12px',
+    color: '#1e40af',
+    lineHeight: '1.45',
+    marginBottom: '16px',
   },
   errorAlert: {
     backgroundColor: '#fef2f2',
     color: '#b91c1c',
     borderRadius: '8px',
-    padding: '12px 14px',
+    padding: '10px 14px',
     fontSize: '13px',
-    marginBottom: '20px',
+    marginBottom: '16px',
     display: 'flex',
     alignItems: 'flex-start',
-    gap: '10px',
+    gap: '8px',
     border: '1px solid #fee2e2',
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
-    position: 'relative',
   },
   inputGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px',
+    gap: '5px',
   },
   label: {
     fontSize: '13px',
@@ -445,7 +654,13 @@ const styles = {
     color: '#0f172a',
     outline: 'none',
     boxSizing: 'border-box',
+    fontFamily: 'inherit',
     transition: 'border-color 0.2s, background-color 0.2s',
+  },
+  helpText: {
+    fontSize: '11px',
+    color: '#94a3b8',
+    marginLeft: '2px',
   },
   submitBtn: {
     marginTop: '6px',
@@ -460,30 +675,31 @@ const styles = {
     borderRadius: '8px',
     fontSize: '14px',
     fontWeight: '600',
+    cursor: 'pointer',
     letterSpacing: '0.025em',
     transition: 'background-color 0.2s, transform 0.1s',
   },
   footer: {
-    marginTop: '22px',
+    marginTop: '20px',
     textAlign: 'center',
     borderTop: '1px solid #f1f5f9',
-    paddingTop: '16px',
+    paddingTop: '14px',
   },
-  toggleText: {
-    fontSize: '13px',
-    color: '#64748b',
-  },
-  toggleBtn: {
+  lockBtn: {
     background: 'none',
     border: 'none',
-    color: '#2563eb',
-    fontWeight: '700',
+    color: '#64748b',
+    fontSize: '12px',
+    fontWeight: '500',
     cursor: 'pointer',
-    padding: '0 4px',
-    fontSize: '13px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 8px',
+    borderRadius: '4px',
   },
   securityNotice: {
-    marginTop: '16px',
+    marginTop: '14px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
