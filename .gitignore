@@ -1,7 +1,7 @@
 node_modules/
 dist/
-data/*.db*
-data/*.backup*
+data/
+*.zip
 .env
 .env.*
 !.env.example
@@ -13,4 +13,4 @@ yarn-debug.log*
 yarn-error.log*
 .vercel
 staging_deploy/
-
+*.code-workspace

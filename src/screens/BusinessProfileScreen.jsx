@@ -153,7 +153,7 @@ export default function BusinessProfileScreen({ onProfileComplete, initialProfil
 
 const styles = {
   container: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

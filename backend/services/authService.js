@@ -1,6 +1,11 @@
 import crypto from 'node:crypto';
 import db from '../db/database.js';
 
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || !process.env.JWT_SECRET.trim())) {
+  console.error('[FATAL] JWT_SECRET environment variable is required in production (NODE_ENV=production). Refusing to start.');
+  process.exit(1);
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'business-erp-v1-secret-key-2026-production';
 const SESSION_DURATION_DAYS = 30;
 

@@ -270,7 +270,7 @@ export default function App() {
 
 const styles = {
   loadingContainer: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',

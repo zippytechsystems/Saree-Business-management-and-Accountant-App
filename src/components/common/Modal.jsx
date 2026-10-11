@@ -151,16 +151,24 @@ const Modal = memo(function Modal({
         className={`modal-content ${isClosing ? 'modal-content-closing' : ''} ${className}`}
         style={{ maxWidth }}
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {/* Mobile bottom-sheet drag handle */}
-        <div className="modal-drag-handle-bar" aria-hidden="true">
+        <div
+          className="modal-drag-handle-bar"
+          aria-hidden="true"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="modal-drag-handle" />
         </div>
 
-        <div className="modal-header">
+        <div
+          className="modal-header"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <h3 id="modal-dialog-title" className="modal-title">
             {title}
           </h3>

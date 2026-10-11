@@ -1,20 +1,19 @@
-process.env.NODE_ENV = 'production';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ mode }) => {
-  process.env.NODE_ENV = 'production';
   return {
-  plugins: [
-    react(),
-    visualizer({
-      filename: 'dist/stats.html',
-      gzipSize: true,
-      brotliSize: true,
-      open: false,
-    }),
-  ],
+    plugins: [
+      react(),
+      process.env.ANALYZE === 'true' &&
+        visualizer({
+          filename: 'dist/stats.html',
+          gzipSize: true,
+          brotliSize: true,
+          open: false,
+        }),
+    ].filter(Boolean),
   build: {
     target: 'es2020',
     cssCodeSplit: true,

@@ -131,19 +131,33 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: no-preference) and (pointer: fine) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.5;
   min-height: 100vh;
-  overflow-x: hidden;
+  min-height: 100dvh;
+  overflow-x: clip;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* App Shell */
 .app-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--bg-primary);
 }
 
@@ -152,7 +166,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-bottom: calc(var(--bottom-nav-height) + 16px);
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 20px);
 }
 
 @media (min-width: 768px) {
@@ -166,24 +180,22 @@ body {
 .top-header {
   height: var(--header-height);
   background: var(--header-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 16px;
   position: sticky;
   top: 0;
   z-index: 40;
   box-shadow: var(--shadow-xs);
-  transition: height var(--dur-base) var(--ease-out),
-              box-shadow var(--dur-base) var(--ease-out),
+  transition: box-shadow var(--dur-base) var(--ease-out),
               background var(--dur-base) var(--ease-out);
 }
 
 .top-header-scrolled {
-  height: 56px;
   box-shadow: var(--shadow-md);
   background: var(--header-bg);
 }
@@ -191,7 +203,13 @@ body {
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.header-brand-info {
+  min-width: 0;
 }
 
 .brand-icon {
@@ -208,21 +226,30 @@ body {
 }
 
 .brand-title {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
 }
 
 .brand-subtitle {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
 }
 
 .header-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .badge-date {
@@ -236,6 +263,32 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+@media (max-width: 540px) {
+  .badge-date {
+    display: none;
+  }
+  .top-header {
+    padding: 0 12px;
+  }
+  .brand-title {
+    max-width: 130px;
+    font-size: 0.92rem;
+  }
+  .brand-subtitle {
+    max-width: 130px;
+    font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .brand-title {
+    max-width: 100px;
+  }
+  .brand-subtitle {
+    display: none;
+  }
 }
 
 .btn-lock-header {
@@ -386,12 +439,13 @@ body {
   height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px);
   background: var(--nav-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-top: 1px solid var(--border-color);
   z-index: 50;
   overflow-x: hidden;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+  overscroll-behavior: contain;
 }
 
 @media (min-width: 768px) {
@@ -637,17 +691,19 @@ body {
               border-color var(--dur-base) var(--ease-out);
 }
 
-.ui-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1.5px);
+@media (hover: hover) {
+  .ui-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1.5px);
+  }
 }
 
 /* Card Variants */
 .ui-card-glass {
   background: var(--bg-glass);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   box-shadow: var(--shadow-sm);
 }
@@ -667,10 +723,12 @@ body {
   user-select: none;
 }
 
-.ui-card-interactive:hover {
-  border-color: var(--accent-blue);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2.5px);
+@media (hover: hover) {
+  .ui-card-interactive:hover {
+    border-color: var(--accent-blue);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2.5px);
+  }
 }
 
 .ui-card-interactive:active {
@@ -1243,7 +1301,6 @@ input[type="submit"], input[type="button"], input[type="date"] {
     border-color var(--dur-base, 200ms) var(--ease-out, ease-out),
     color var(--dur-base, 200ms) var(--ease-out, ease-out),
     box-shadow var(--dur-base, 200ms) var(--ease-out, ease-out);
-  will-change: transform;
 }
 
 @media (hover: hover) {
@@ -1704,7 +1761,6 @@ summary:focus-visible {
 /* Page Transition Wrapper */
 .page-transition-wrapper {
   animation: pageFadeSlideIn var(--dur-base, 220ms) var(--ease-out) forwards;
-  will-change: transform, opacity;
 }
 
 @keyframes pageFadeSlideIn {
@@ -1903,43 +1959,13 @@ summary:focus-visible {
 /* ====================================================================
    PERFORMANCE & MOBILE SMOOTHNESS ENHANCEMENTS
    ==================================================================== */
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-/* Eliminate 300ms mobile tap delay */
-button,
-.btn,
-.action-btn,
-.nav-link,
-.bottom-nav-item,
-.sub-nav-tab,
-.category-pill {
-  touch-action: manipulation;
-}
-
 /* Smooth inertia scrolling & overscroll protection on mobile */
 .data-table-container,
+.table-container,
 .sub-nav-tabs,
 .mobile-bottom-nav {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-}
-
-/* CSS Content Visibility Containment for Long Ledgers & Tables */
-.data-table tbody tr {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 48px;
-}
-
-.ui-card {
-  contain: layout style;
 }
 
 /* Shimmer Loading Skeletons */
@@ -2022,6 +2048,7 @@ button,
    ==================================================================== */
 .auth-page-container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2030,6 +2057,9 @@ button,
   padding: 32px 16px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .auth-header-banner {
@@ -2407,7 +2437,8 @@ input:-webkit-autofill:active {
 
 .chart-card {
   position: relative;
-  overflow: visible;
+  overflow: hidden;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
