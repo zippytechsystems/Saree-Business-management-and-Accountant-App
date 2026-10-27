@@ -575,7 +575,7 @@ export default function ShopCodeLockScreen({
 
         <div style={styles.footerNote}>
           <ShieldCheck size={14} color="#10b981" />
-          <span>Device Auto-Lock Protection • ZippyTech Systems</span>
+          <span>Device Auto-Lock Protection • Zippy Enterprises</span>
         </div>
       </div>
     </div>

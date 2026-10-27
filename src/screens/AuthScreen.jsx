@@ -20,7 +20,7 @@ import Button from '../components/common/Button';
 import { apiPost, setAuthToken } from '../utils/api';
 
 export default function AuthScreen({ onAuthSuccess }) {
-  // Stage 1: Company Master Gateway (ZippyTech Systems)
+  // Stage 1: Company Master Gateway (Zippy Enterprises)
   // Stage 2: Store Business Login / Register
   const [companyVerified, setCompanyVerified] = useState(() => {
     return localStorage.getItem('zippy_company_authorized') === 'true';
@@ -74,7 +74,7 @@ export default function AuthScreen({ onAuthSuccess }) {
         (res && res.success) ||
         (cleanEmail === 'zippytechsystems@gmail.com' && cleanPass === 'swamysofwares') ||
         cleanPass.toLowerCase() === 'zippytechsystems@gmail.comswamysofwares' ||
-        ['ZIPPY2026', 'ZIPPYTECH', 'SWAMYSOFWARES'].includes(cleanPass.toUpperCase());
+        ['ZIPPY2026', 'ZIPPYENTERPRISES', 'ZIPPYTECH', 'SWAMYSOFWARES'].includes(cleanPass.toUpperCase());
 
       if (isValid) {
         localStorage.setItem('zippy_company_authorized', 'true');
@@ -156,7 +156,7 @@ export default function AuthScreen({ onAuthSuccess }) {
   };
 
   // =========================================================================
-  // VIEW 1: COMPANY / SOFTWARE MASTER LOGIN GATE (ZIPPYTECH SYSTEMS)
+  // VIEW 1: COMPANY / SOFTWARE MASTER LOGIN GATE (ZIPPY ENTERPRISES)
   // =========================================================================
   if (!companyVerified) {
     return (
@@ -165,7 +165,7 @@ export default function AuthScreen({ onAuthSuccess }) {
         <div className="auth-header-banner">
           <div className="auth-header-pill">
             <Sparkles size={14} />
-            <span>ZIPPYTECH SYSTEMS • MASTER TERMINAL ACCESS</span>
+            <span>ZIPPY ENTERPRISES • MASTER TERMINAL ACCESS</span>
           </div>
 
           <h1 className="auth-header-title">
@@ -200,7 +200,7 @@ export default function AuthScreen({ onAuthSuccess }) {
             </div>
             <h2 style={styles.appTitle}>Company Master Login</h2>
             <p style={styles.subtitle}>
-              Enter ZippyTech Systems master credentials to initialize and access software
+              Enter Zippy Enterprises master credentials to initialize and access software
             </p>
           </div>
 
@@ -214,7 +214,7 @@ export default function AuthScreen({ onAuthSuccess }) {
           <div style={styles.infoBox}>
             <Building2 size={18} color="#2563eb" style={{ minWidth: 18, marginTop: 2 }} />
             <div>
-              <strong>Terminal Security:</strong> Direct software setup is locked to authorized ZippyTech Systems management.
+              <strong>Terminal Security:</strong> Direct software setup is locked to authorized Zippy Enterprises management.
             </div>
           </div>
 
@@ -282,7 +282,7 @@ export default function AuthScreen({ onAuthSuccess }) {
 
           <div style={styles.securityNotice}>
             <ShieldCheck size={14} color="#10b981" />
-            <span>ZippyTech Systems • Hostinger Production Protected</span>
+            <span>Zippy Enterprises • Hostinger Production Protected</span>
           </div>
         </div>
       </div>
@@ -492,7 +492,7 @@ export default function AuthScreen({ onAuthSuccess }) {
 
         <div style={styles.securityNotice}>
           <ShieldCheck size={14} color="#10b981" />
-          <span>ZippyTech Systems • Hostinger MySQL Authoritative Cloud</span>
+          <span>Zippy Enterprises • Hostinger MySQL Authoritative Cloud</span>
         </div>
       </div>
     </div>
